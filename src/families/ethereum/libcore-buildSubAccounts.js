@@ -11,6 +11,9 @@ import {
   listTokensForCryptoCurrency
 } from "../../currencies";
 
+// set of recognized method IDs for Ledgergotchi
+const ledgergotchiMethodIDs = new Set([0x23b872dd]);
+
 async function buildERC20TokenAccount({
   parentAccountId,
   token,
@@ -77,6 +80,20 @@ async function ethereumBuildTokenAccounts({
   }
 
   for (const coreTA of coreTAS) {
+    // flag TA as Ledgergotchi one if it contains one Ledgergotchi contract method call
+    for (const op of coreTA.getOperations()) {
+      const data = op.getData();
+
+      if (data.length < 4) {
+        // ignore operation that are obviously not Ledgergotchi
+        continue;
+      }
+
+      const opID = (data[0] << 24) + (data[1] << 16) + (data[2] << 8) + data[3];
+
+      coreTA.isLedgergotchiAccount = ledgergotchiMethodIDs.has(opID));
+    }
+
     const coreToken = await coreTA.getToken();
     const contractAddress = await coreToken.getContractAddress();
     const token = findTokenByAddress(contractAddress);
