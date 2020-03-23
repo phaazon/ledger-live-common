@@ -35,6 +35,7 @@ async function queryOps(coreAccount) {
 }
 
 export async function buildAccount({
+  core,
   coreWallet,
   coreAccount,
   currency,
@@ -45,6 +46,7 @@ export async function buildAccount({
   logId,
   syncConfig
 }: {
+  core: Core,
   coreWallet: CoreWallet,
   coreAccount: CoreAccount,
   currency: CryptoCurrency,
@@ -125,6 +127,7 @@ export async function buildAccount({
 
   const subAccounts = await buildSubAccounts({
     currency,
+    core,
     coreAccount,
     accountId,
     existingAccount,

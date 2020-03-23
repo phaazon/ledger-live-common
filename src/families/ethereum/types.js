@@ -7,6 +7,7 @@ import type {
   TransactionCommonRaw
 } from "../../types/transaction";
 import type {
+  CoreAccount,
   CoreAmount,
   CoreBigInt,
   OperationType,
@@ -40,6 +41,9 @@ declare class CoreInternalTransaction {
 }
 
 declare class CoreEthereumLikeOperation {
+  static fromCoreOperation(
+    coreOperation: CoreOperation
+  ): ?CoreEthereumLikeOperation;
   getTransaction(): Promise<CoreEthereumLikeTransaction>;
   getInternalTransactions(): Promise<CoreInternalTransaction[]>;
 }
@@ -54,6 +58,7 @@ declare class CoreEthereumLikeTransactionBuilder {
 }
 
 declare class CoreEthereumLikeAccount {
+  static fromCoreAccount(coreAccount: CoreAccount): ?CoreEthereumLikeAccount;
   getERC20Accounts(): Promise<CoreERC20LikeAccount[]>;
   buildTransaction(): Promise<CoreEthereumLikeTransactionBuilder>;
   broadcastRawTransaction(signed: string): Promise<string>;
@@ -112,13 +117,9 @@ export type {
   CoreERC20Token
 };
 
-export type CoreAccountSpecifics = {
-  asEthereumLikeAccount(): Promise<CoreEthereumLikeAccount>
-};
+export type CoreAccountSpecifics = {};
 
-export type CoreOperationSpecifics = {
-  asEthereumLikeOperation(): Promise<CoreEthereumLikeOperation>
-};
+export type CoreOperationSpecifics = {};
 
 export type CoreCurrencySpecifics = {};
 
@@ -278,15 +279,7 @@ export const reflect = (declare: (string, Spec) => void) => {
   });
 
   return {
-    OperationMethods: {
-      asEthereumLikeOperation: {
-        returns: "EthereumLikeOperation"
-      }
-    },
-    AccountMethods: {
-      asEthereumLikeAccount: {
-        returns: "EthereumLikeAccount"
-      }
-    }
+    OperationMethods: {},
+    AccountMethods: {}
   };
 };

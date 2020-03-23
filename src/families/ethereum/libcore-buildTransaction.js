@@ -36,7 +36,10 @@ export async function ethereumBuildTransaction({
     ? account.subAccounts &&
       account.subAccounts.find(t => t.id === subAccountId)
     : null;
-  const ethereumLikeAccount = await coreAccount.asEthereumLikeAccount();
+  const ethereumLikeAccount = core.CoreEthereumLikeAccount.fromCoreAccount(
+    coreAccount
+  );
+  invariant(ethereumLikeAccount, "ethereum account expected");
 
   await isValidRecipient({
     currency: account.currency,
