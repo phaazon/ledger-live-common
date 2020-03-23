@@ -25,7 +25,9 @@ async function bitcoinBuildTransaction({
   isPartial: boolean,
   isCancelled: () => boolean
 }): Promise<?CoreBitcoinLikeTransaction> {
-  const bitcoinLikeAccount = await coreAccount.asBitcoinLikeAccount();
+  const bitcoinLikeAccount = core.CoreBitcoinLikeAccount.fromCoreAccount(
+    coreAccount
+  );
 
   const isValid = await isValidRecipient({
     currency: account.currency,
