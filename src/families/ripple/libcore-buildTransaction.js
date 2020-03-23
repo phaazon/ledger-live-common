@@ -7,6 +7,7 @@ import { isValidRecipient } from "../../libcore/isValidRecipient";
 import { bigNumberToLibcoreAmount } from "../../libcore/buildBigNumber";
 import type { Core, CoreCurrency, CoreAccount } from "../../libcore/types";
 import type { CoreRippleLikeTransaction, Transaction } from "./types";
+import invariant from "invariant";
 
 // TODO figure out what to do with base reserve
 async function rippleBuildTransaction({
@@ -24,7 +25,10 @@ async function rippleBuildTransaction({
   transaction: Transaction,
   isCancelled: () => boolean
 }): Promise<?CoreRippleLikeTransaction> {
-  const rippleLikeAccount = await coreAccount.asRippleLikeAccount();
+  const rippleLikeAccount = core.CoreRippleLikeAccount.fromCoreAccount(
+    coreAccount
+  );
+  invariant(rippleLikeAccount, "ripple account expected");
 
   const isValid = await isValidRecipient({
     currency: account.currency,

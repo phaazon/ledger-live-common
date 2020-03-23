@@ -148,6 +148,7 @@ export async function buildAccount({
     paginatedPartialOperations,
     async corePartialOperation =>
       buildOperation({
+        core,
         coreOperation: await inferCoreOperation(corePartialOperation),
         accountId,
         currency,
