@@ -10,9 +10,18 @@ import type {
   CoreAccount,
   CoreAmount,
   CoreBigInt,
+  CoreServices,
+  CoreWalletStore,
   OperationType,
   Spec
 } from "../../libcore/types";
+
+declare class CoreEthereum {
+  static registerInto(
+    services: CoreServices,
+    walletStore: CoreWalletStore
+  ): Promise<boolean>;
+}
 
 declare class CoreEthereumLikeAddress {
   toEIP55(): Promise<string>;

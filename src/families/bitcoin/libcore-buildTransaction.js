@@ -7,6 +7,7 @@ import { isValidRecipient } from "../../libcore/isValidRecipient";
 import { bigNumberToLibcoreAmount } from "../../libcore/buildBigNumber";
 import type { Core, CoreCurrency, CoreAccount } from "../../libcore/types";
 import type { CoreBitcoinLikeTransaction, Transaction } from "./types";
+import invariant from "invariant";
 
 async function bitcoinBuildTransaction({
   account,
@@ -28,6 +29,7 @@ async function bitcoinBuildTransaction({
   const bitcoinLikeAccount = core.CoreBitcoinLikeAccount.fromCoreAccount(
     coreAccount
   );
+  invariant(bitcoinLikeAccount, "bitcoin account expected");
 
   const isValid = await isValidRecipient({
     currency: account.currency,
