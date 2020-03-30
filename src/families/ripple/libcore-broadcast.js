@@ -7,9 +7,7 @@ async function broadcast({
   coreAccount,
   signedOperation: { operation, signature }
 }) {
-  const rippleLikeAccount = core.CoreRippleLikeAccount.fromCoreAccount(
-    coreAccount
-  );
+  const rippleLikeAccount = core.RippleLikeAccount.fromCoreAccount(coreAccount);
   const txHash = await rippleLikeAccount.broadcastRawTransaction(signature);
   return patchOperationWithHash(operation, txHash);
 }

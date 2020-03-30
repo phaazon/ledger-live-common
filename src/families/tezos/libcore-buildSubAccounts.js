@@ -17,11 +17,13 @@ const OperationOrderKey = {
 };
 
 async function buildOriginatedAccount({
+  core,
   parentAccountId,
   currency,
   coreOriginatedAccount,
   existingOriginatedAccount
 }: {
+  core: Core,
   parentAccountId: string,
   currency: CryptoCurrency,
   coreOriginatedAccount: CoreTezosLikeOriginatedAccount,
@@ -43,6 +45,7 @@ async function buildOriginatedAccount({
     coreOperations,
     coreOperation =>
       buildOperation({
+        core,
         coreOperation,
         accountId: id,
         currency
@@ -80,7 +83,7 @@ async function tezosBuildOriginatedAccount({
   existingAccount: ?Account
 }): Promise<?(ChildAccount[])> {
   const originatedAccounts = [];
-  const xtzAccount: CoreTezosLikeAccount = core.CoreTezosLikeAccount.fromCoreAccount(
+  const xtzAccount: CoreTezosLikeAccount = await new core.Tezos().fromCoreAccount(
     coreAccount
   );
   invariant(xtzAccount, "tezos account expected");
@@ -103,6 +106,7 @@ async function tezosBuildOriginatedAccount({
     const address = await coreOA.getAddress();
     const existingOriginatedAccount = existingAccountByAddress[address];
     const originatedAccount = await buildOriginatedAccount({
+      core,
       parentAccountId: accountId,
       currency,
       coreOriginatedAccount: coreOA,

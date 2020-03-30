@@ -10,7 +10,7 @@ async function rippleBuildOperation({
   core: Core,
   coreOperation: CoreOperation
 }) {
-  const rippleLikeOperation = core.CoreRippleLikeOperation.fromCoreOperation(
+  const rippleLikeOperation = core.RippleLikeOperation.fromCoreOperation(
     coreOperation
   );
   invariant(rippleLikeOperation, "ripple operation expected");
