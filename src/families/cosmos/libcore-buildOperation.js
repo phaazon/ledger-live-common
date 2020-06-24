@@ -67,7 +67,7 @@ async function cosmosBuildOperation({
   core: Core,
   coreOperation: CoreOperation,
 }) {
-  const cosmosLikeOperation = await coreOperation.asCosmosLikeOperation();
+  const cosmosLikeOperation = await new core.Cosmos().fromCoreOperation(coreOperation);
   const cosmosLikeTransaction = await cosmosLikeOperation.getTransaction();
   const hash = await cosmosLikeTransaction.getHash();
   const memo = await cosmosLikeTransaction.getMemo();

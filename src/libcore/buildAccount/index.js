@@ -249,7 +249,7 @@ export async function buildAccount({
 
   const f: F = byFamily[currency.family];
   if (f) {
-    return await f({ account, coreAccount });
+    return await f({ account, core, coreAccount });
   }
 
   return account;

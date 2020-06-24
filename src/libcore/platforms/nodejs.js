@@ -541,6 +541,7 @@ export default (arg: {
       //await new core.Ethereum().registerInto(services, walletStore);
       //await new core.Ripple().registerInto(services, walletStore);
       await new core.Tezos().registerInto(services, walletStore);
+      await new core.Cosmos().registerInto(services, walletStore);
       return core;
     })();
   };

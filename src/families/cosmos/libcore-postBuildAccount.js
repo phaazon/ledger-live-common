@@ -103,9 +103,10 @@ const filterDelegation = (delegations) => {
 
 const getCosmosResources = async (
   account: Account,
+  core,
   coreAccount
 ): Promise<CosmosResources> => {
-  const cosmosAccount = await coreAccount.asCosmosLikeAccount();
+  const cosmosAccount = await new core.Cosmos().fromCoreAccount(coreAccount);
   const flattenDelegation = await getFlattenDelegation(cosmosAccount);
   const flattenUnbonding = await getFlattenUnbonding(cosmosAccount);
   const flattenRedelegation = await getFlattenRedelegations(cosmosAccount);
@@ -133,13 +134,14 @@ const getCosmosResources = async (
 
 const postBuildAccount = async ({
   account,
+  core,
   coreAccount,
 }: {
   account: Account,
   coreAccount: CoreAccount,
 }): Promise<Account> => {
   log("cosmos/post-buildAccount", "getCosmosResources");
-  account.cosmosResources = await getCosmosResources(account, coreAccount);
+  account.cosmosResources = await getCosmosResources(account, core, coreAccount);
   log("cosmos/post-buildAccount", "getCosmosResources DONE");
   account.spendableBalance = getMaxEstimatedBalance(account, BigNumber(0));
   if (account.spendableBalance.lt(0)) {

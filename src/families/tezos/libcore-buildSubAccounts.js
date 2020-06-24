@@ -74,14 +74,12 @@ async function buildOriginatedAccount({
 }
 
 async function tezosBuildOriginatedAccount({
-  core,
   currency,
   core,
   coreAccount,
   accountId,
   existingAccount,
 }: {
-  core: Core,
   currency: CryptoCurrency,
   core: Core,
   coreAccount: CoreAccount,

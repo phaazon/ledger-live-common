@@ -24,13 +24,9 @@ export type CoreStatics = {
   CosmosGasLimitRequest: Class<CoreCosmosGasLimitRequest>,
 };
 
-export type CoreAccountSpecifics = {
-  asCosmosLikeAccount(): Promise<CoreCosmosLikeAccount>,
-};
+export type CoreAccountSpecifics = {};
 
-export type CoreOperationSpecifics = {
-  asCosmosLikeOperation(): Promise<CoreCosmosLikeOperation>,
-};
+export type CoreOperationSpecifics = {};
 
 export type CoreCurrencySpecifics = {};
 export type CosmosDelegationStatus =
@@ -839,15 +835,7 @@ export const reflect = (declare: (string, Spec) => void) => {
   });
 
   return {
-    OperationMethods: {
-      asCosmosLikeOperation: {
-        returns: "CosmosLikeOperation",
-      },
-    },
-    AccountMethods: {
-      asCosmosLikeAccount: {
-        returns: "CosmosLikeAccount",
-      },
-    },
+    OperationMethods: { },
+    AccountMethods: {},
   };
 };
