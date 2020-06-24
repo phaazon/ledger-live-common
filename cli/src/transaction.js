@@ -9,7 +9,7 @@ import { BigNumber } from "bignumber.js";
 import type {
   Transaction,
   AccountLike,
-  Account
+  Account,
 } from "@ledgerhq/live-common/lib/types";
 import perFamily from "@ledgerhq/live-common/lib/generated/cli-transaction";
 import { getAccountBridge } from "@ledgerhq/live-common/lib/bridge";
@@ -38,7 +38,7 @@ export type InferTransactionsOpts = $Shape<{
   "use-all-amount": boolean,
   recipient: string[],
   amount: string,
-  shuffle: boolean
+  shuffle: boolean,
 }>;
 
 export const inferTransactionsOpts = uniqBy(
@@ -46,30 +46,30 @@ export const inferTransactionsOpts = uniqBy(
     {
       name: "self-transaction",
       type: Boolean,
-      desc: "Pre-fill the transaction for the account to send to itself"
+      desc: "Pre-fill the transaction for the account to send to itself",
     },
     {
       name: "use-all-amount",
       type: Boolean,
-      desc: "Send MAX of the account balance"
+      desc: "Send MAX of the account balance",
     },
     {
       name: "recipient",
       type: String,
       desc: "the address to send funds to",
-      multiple: true
+      multiple: true,
     },
     {
       name: "amount",
       type: String,
-      desc: "how much to send in the main currency unit"
+      desc: "how much to send in the main currency unit",
     },
     {
       name: "shuffle",
       type: Boolean,
-      desc: "if using multiple token or recipient, order will be randomized"
-    }
-  ].concat(flatMap(Object.values(perFamily), m => (m && m.options) || [])),
+      desc: "if using multiple token or recipient, order will be randomized",
+    },
+  ].concat(flatMap(Object.values(perFamily), (m) => (m && m.options) || [])),
   "name"
 );
 
@@ -92,7 +92,7 @@ export async function inferTransactions(
     product(
       inferAccounts(mainAccount, opts),
       opts.recipient || [
-        opts["self-transaction"] ? mainAccount.freshAddress : ""
+        opts["self-transaction"] ? mainAccount.freshAddress : "",
       ]
     ).map(async ([account, recipient]) => {
       let transaction = bridge.createTransaction(mainAccount);
@@ -105,9 +105,7 @@ export async function inferTransactions(
         ? BigNumber(0)
         : inferAmount(account, opts.amount || "0.001");
 
-      transaction = await bridge.prepareTransaction(mainAccount, transaction);
-
-      return { account, transaction };
+      return { account, transaction, mainAccount };
     })
   );
 
@@ -116,7 +114,7 @@ export async function inferTransactions(
   }
 
   const transactions = await Promise.all(
-    inferTransactions(all, opts, { inferAmount }).map(transaction =>
+    inferTransactions(all, opts, { inferAmount }).map((transaction) =>
       bridge.prepareTransaction(mainAccount, transaction)
     )
   );

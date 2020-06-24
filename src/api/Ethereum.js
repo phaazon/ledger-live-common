@@ -1,32 +1,36 @@
 // @flow
+import invariant from "invariant";
 import { BigNumber } from "bignumber.js";
 import { LedgerAPINotAvailable } from "@ledgerhq/errors";
+import JSONBigNumber from "../JSONBigNumber";
 import type { CryptoCurrency } from "../types";
+import type { EthereumGasLimitRequest } from "../families/ethereum/types";
 import network from "../network";
 import { blockchainBaseURL, getCurrencyExplorer } from "./Ledger";
+import { FeeEstimationFailed } from "../errors";
 
-export type Block = { height: number }; // TODO more fields actually
+export type Block = { height: BigNumber }; // TODO more fields actually
 
 export type Tx = {
   hash: string,
   received_at: string,
   nonce: string,
-  value: number,
-  gas: number,
-  gas_price: number,
-  cumulative_gas_used: number,
-  gas_used: number,
+  value: BigNumber,
+  gas: BigNumber,
+  gas_price: BigNumber,
+  cumulative_gas_used: BigNumber,
+  gas_used: BigNumber,
   from: string,
   to: string,
   input: string,
-  index: number,
+  index: BigNumber,
   block?: {
     hash: string,
-    height: number,
-    time: string
+    height: BigNumber,
+    time: string,
   },
-  confirmations: number,
-  status: number
+  confirmations: BigNumber,
+  status: BigNumber,
 };
 
 export type API = {
@@ -35,20 +39,24 @@ export type API = {
     blockHash: ?string
   ) => Promise<{
     truncated: boolean,
-    txs: Tx[]
+    txs: Tx[],
   }>,
   getCurrentBlock: () => Promise<Block>,
   getAccountNonce: (address: string) => Promise<number>,
   broadcastTransaction: (signedTransaction: string) => Promise<string>,
   getAccountBalance: (address: string) => Promise<BigNumber>,
-  estimateGasLimitForERC20: (address: string) => Promise<number>
+  roughlyEstimateGasLimit: (address: string) => Promise<BigNumber>,
+  getDryRunGasLimit: (
+    address: string,
+    request: EthereumGasLimitRequest
+  ) => Promise<BigNumber>,
 };
 
 export const apiForCurrency = (currency: CryptoCurrency): API => {
   const baseURL = blockchainBaseURL(currency);
   if (!baseURL) {
     throw new LedgerAPINotAvailable(`LedgerAPINotAvailable ${currency.id}`, {
-      currencyName: currency.name
+      currencyName: currency.name,
     });
   }
   return {
@@ -56,24 +64,27 @@ export const apiForCurrency = (currency: CryptoCurrency): API => {
       let { data } = await network({
         method: "GET",
         url: `${baseURL}/addresses/${address}/transactions`,
+        transformResponse: JSONBigNumber.parse,
         params:
           getCurrencyExplorer(currency).version === "v2"
             ? {
                 blockHash,
-                noToken: 1
+                noToken: 1,
               }
             : {
                 batch_size: 2000,
                 no_token: true,
                 block_hash: blockHash,
-                partial: true
-              }
+                partial: true,
+              },
       });
       // v3 have a bug that still includes the tx of the paginated block_hash, we're cleaning it up
       if (blockHash && getCurrencyExplorer(currency).version === "v3") {
         data = {
           ...data,
-          txs: data.txs.filter(tx => !tx.block || tx.block.hash !== blockHash)
+          txs: data.txs.filter(
+            (tx) => !tx.block || tx.block.hash !== blockHash
+          ),
         };
       }
       return data;
@@ -82,7 +93,8 @@ export const apiForCurrency = (currency: CryptoCurrency): API => {
     async getCurrentBlock() {
       const { data } = await network({
         method: "GET",
-        url: `${baseURL}/blocks/current`
+        url: `${baseURL}/blocks/current`,
+        transformResponse: JSONBigNumber.parse,
       });
       return data;
     },
@@ -90,26 +102,16 @@ export const apiForCurrency = (currency: CryptoCurrency): API => {
     async getAccountNonce(address) {
       const { data } = await network({
         method: "GET",
-        url: `${baseURL}/addresses/${address}/nonce`
+        url: `${baseURL}/addresses/${address}/nonce`,
       });
       return data[0].nonce;
-    },
-
-    async estimateGasLimitForERC20(address) {
-      if (getCurrencyExplorer(currency).version === "v2") return 21000;
-
-      const { data } = await network({
-        method: "GET",
-        url: `${baseURL}/addresses/${address}/estimate-gas-limit`
-      });
-      return data.estimated_gas_limit;
     },
 
     async broadcastTransaction(tx) {
       const { data } = await network({
         method: "POST",
         url: `${baseURL}/transactions/send`,
-        data: { tx }
+        data: { tx },
       });
       return data.result;
     },
@@ -117,10 +119,40 @@ export const apiForCurrency = (currency: CryptoCurrency): API => {
     async getAccountBalance(address) {
       const { data } = await network({
         method: "GET",
-        url: `${baseURL}/addresses/${address}/balance`
+        url: `${baseURL}/addresses/${address}/balance`,
+        transformResponse: JSONBigNumber.parse,
       });
-      // FIXME precision lost here. nothing we can do easily
       return BigNumber(data[0].balance);
-    }
+    },
+
+    async roughlyEstimateGasLimit(address) {
+      if (getCurrencyExplorer(currency).version === "v2") {
+        return BigNumber(21000);
+      }
+      const { data } = await network({
+        method: "GET",
+        url: `${baseURL}/addresses/${address}/estimate-gas-limit`,
+        transformResponse: JSONBigNumber.parse,
+      });
+      return BigNumber(data.estimated_gas_limit);
+    },
+
+    async getDryRunGasLimit(address, request) {
+      if (getCurrencyExplorer(currency).version === "v2") {
+        return BigNumber(21000);
+      }
+      const { data } = await network({
+        method: "POST",
+        url: `${baseURL}/addresses/${address}/estimate-gas-limit`,
+        data: request,
+        transformResponse: JSONBigNumber.parse,
+      });
+      if (data.error_message) {
+        throw new FeeEstimationFailed(data.error_message);
+      }
+      const value = BigNumber(data.estimated_gas_limit);
+      invariant(!value.isNaN(), "invalid server data");
+      return value;
+    },
   };
 };

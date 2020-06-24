@@ -4,18 +4,19 @@ import type {
   SubAccount,
   Account,
   CryptoCurrency,
-  SyncConfig
+  SyncConfig,
 } from "../../types";
 import type { Core, CoreAccount } from "../types";
 import byFamily from "../../generated/libcore-buildSubAccounts";
 
 export async function buildSubAccounts(arg: {
+  core: Core,
   currency: CryptoCurrency,
   core: Core,
   coreAccount: CoreAccount,
   accountId: string,
   existingAccount: ?Account,
-  syncConfig: SyncConfig
+  syncConfig: SyncConfig,
 }): Promise<?(SubAccount[])> {
   const f = byFamily[arg.currency.family];
   if (f) {

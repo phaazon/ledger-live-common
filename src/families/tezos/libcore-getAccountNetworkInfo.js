@@ -9,7 +9,7 @@ import invariant from "invariant";
 type Input = {
   core: Core,
   coreAccount: CoreAccount,
-  account: Account
+  account: Account,
 };
 
 type Output = Promise<NetworkInfo>;
@@ -25,7 +25,7 @@ async function tezos({ core, coreAccount }: Input): Output {
   const fees = BigNumber.min(BigNumber.max(2500, networkFees), 30000);
   return {
     family: "tezos",
-    fees
+    fees,
   };
 }
 

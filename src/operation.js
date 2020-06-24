@@ -4,7 +4,7 @@
  */
 
 import { BigNumber } from "bignumber.js";
-import type { AccountLike, Operation } from "./types";
+import type { Account, AccountLike, Operation } from "./types";
 
 export function findOperationInAccount(
   { operations, pendingOperations }: AccountLike,
@@ -38,11 +38,11 @@ export function patchOperationWithHash(
     id: `${operation.accountId}-${hash}-${operation.type}`,
     subOperations:
       operation.subOperations &&
-      operation.subOperations.map(op => ({
+      operation.subOperations.map((op) => ({
         ...op,
         hash,
-        id: `${op.accountId}-${hash}-${op.type}`
-      }))
+        id: `${op.accountId}-${hash}-${op.type}`,
+      })),
   };
 }
 
@@ -68,7 +68,7 @@ export function getOperationAmountNumber(op: Operation): BigNumber {
     case "REVEAL":
     case "CREATE":
     case "DELEGATE":
-    case "UNDELEGATE":
+    case "FEES":
       return op.value.negated();
     case "FREEZE":
     case "UNFREEZE":
@@ -87,3 +87,17 @@ export function getOperationAmountNumberWithInternals(
     BigNumber(0)
   );
 }
+
+export const getOperationConfirmationNumber = (
+  operation: Operation,
+  account: Account
+): number =>
+  operation.blockHeight ? account.blockHeight - operation.blockHeight : 0;
+
+export const getOperationConfirmationDisplayableNumber = (
+  operation: Operation,
+  account: Account
+): string =>
+  account.blockHeight && operation.blockHeight && account.currency.blockAvgTime
+    ? String(account.blockHeight - operation.blockHeight)
+    : "";

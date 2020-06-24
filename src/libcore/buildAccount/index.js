@@ -6,27 +6,30 @@ import {
   encodeAccountId,
   getAccountPlaceholderName,
   getNewAccountPlaceholderName,
-  libcoreNoGoBalanceHistory
+  libcoreNoGoBalanceHistory,
 } from "../../account";
 import type {
   SyncConfig,
   Account,
   CryptoCurrency,
-  DerivationMode
+  DerivationMode,
 } from "../../types";
 import { libcoreAmountToBigNumber } from "../buildBigNumber";
-import type { CoreWallet, CoreAccount } from "../types";
+import type { CoreWallet, CoreAccount, Core } from "../types";
 import { buildOperation } from "./buildOperation";
 import { buildSubAccounts } from "./buildSubAccounts";
 import { minimalOperationsBuilder } from "../../reconciliation";
 import { getOperationsPageSize } from "../../pagination";
 import getAccountBalanceHistory from "../getAccountBalanceHistory";
 import { getRanges } from "../../portfolio";
+import byFamily from "../../generated/libcore-postBuildAccount";
 
 // FIXME how to get that
 const OperationOrderKey = {
-  date: 0
+  date: 0,
 };
+
+type F = ({ account: Account, coreAccount: CoreAccount }) => Promise<Account>;
 
 async function queryOps(coreAccount) {
   const query = await coreAccount.queryOperations();
@@ -44,7 +47,7 @@ export async function buildAccount({
   seedIdentifier,
   existingAccount,
   logId,
-  syncConfig
+  syncConfig,
 }: {
   core: Core,
   coreWallet: CoreWallet,
@@ -55,7 +58,7 @@ export async function buildAccount({
   seedIdentifier: string,
   existingAccount: ?Account,
   logId: number,
-  syncConfig: SyncConfig
+  syncConfig: SyncConfig,
 }): Promise<Account> {
   log("libcore", `sync(${logId}) start buildAccount`);
 
@@ -66,7 +69,7 @@ export async function buildAccount({
     version: "1",
     currencyId: currency.id,
     xpubOrAddress: restoreKey,
-    derivationMode
+    derivationMode,
   });
 
   const query = await queryOps(coreAccount);
@@ -99,10 +102,10 @@ export async function buildAccount({
     throw new Error("expected at least one fresh address");
 
   const freshAddresses = await Promise.all(
-    coreFreshAddresses.map(async item => {
+    coreFreshAddresses.map(async (item) => {
       const [address, path] = await Promise.all([
         item.toString(),
-        item.getDerivationPath()
+        item.getDerivationPath(),
       ]);
 
       const derivationPath = path ? `${accountPath}/${path}` : accountPath;
@@ -117,27 +120,28 @@ export async function buildAccount({
       ? getNewAccountPlaceholderName({
           currency,
           index: accountIndex,
-          derivationMode
+          derivationMode,
         })
       : getAccountPlaceholderName({
           currency,
           index: accountIndex,
-          derivationMode
+          derivationMode,
         });
 
   const subAccounts = await buildSubAccounts({
+    core,
     currency,
     core,
     coreAccount,
     accountId,
     existingAccount,
     logId,
-    syncConfig
+    syncConfig,
   });
 
   // We have pre-fetched the operations in "partial" mode
   // now we will need to complete them lazily
-  const inferCoreOperation = async corePartialOperation => {
+  const inferCoreOperation = async (corePartialOperation) => {
     const query = await queryOps(coreAccount);
     await query.limit(1);
     await query.offset(partialOperations.indexOf(corePartialOperation));
@@ -149,15 +153,33 @@ export async function buildAccount({
   const operations = await minimalOperationsBuilder(
     (existingAccount && existingAccount.operations) || [],
     paginatedPartialOperations,
-    async corePartialOperation =>
+    async (corePartialOperation) =>
       buildOperation({
         core,
         coreOperation: await inferCoreOperation(corePartialOperation),
         accountId,
         currency,
-        contextualSubAccounts: subAccounts
+        contextualSubAccounts: subAccounts,
       })
   );
+  let lastOperation;
+
+  if (partialOperations.length > 0) {
+    if (operations.length === partialOperations.length) {
+      // we already have lastOperation
+      lastOperation = operations[operations.length - 1];
+    } else {
+      // we need to fetch lastOperation. partialOperations is older first
+      const coreOperation = await inferCoreOperation(partialOperations[0]);
+      lastOperation = await buildOperation({
+        core,
+        coreOperation,
+        accountId,
+        currency,
+        contextualSubAccounts: subAccounts,
+      });
+    }
+  }
 
   log("libcore", `sync(${logId}) DONE operations`);
 
@@ -165,7 +187,7 @@ export async function buildAccount({
 
   if (!libcoreNoGoBalanceHistory().includes(currency.id)) {
     await Promise.all(
-      getRanges().map(async range => {
+      getRanges().map(async (range) => {
         // NB if we find this not optimized, we can implement this cache strategy:
         // if for this range a balanceHistory exists in "existingAccount"
         // compare the last data point {value} with `balance`, re-calc if differ
@@ -181,6 +203,20 @@ export async function buildAccount({
   }
 
   log("libcore", `sync(${logId}) DONE balanceHistory`);
+
+  let creationDate = new Date();
+
+  if (lastOperation) {
+    creationDate = lastOperation.date;
+  }
+
+  if (subAccounts) {
+    subAccounts.forEach((a) => {
+      if (a.creationDate < creationDate) {
+        creationDate = a.creationDate;
+      }
+    });
+  }
 
   const account: $Exact<Account> = {
     type: "Account",
@@ -203,11 +239,17 @@ export async function buildAccount({
     operationsCount: partialOperations.length,
     operations,
     pendingOperations: [],
-    lastSyncDate: new Date()
+    lastSyncDate: new Date(),
+    creationDate,
   };
 
   if (subAccounts) {
     account.subAccounts = subAccounts;
+  }
+
+  const f: F = byFamily[currency.family];
+  if (f) {
+    return await f({ account, core, coreAccount });
   }
 
   return account;

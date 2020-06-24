@@ -13,17 +13,17 @@ export default {
   description: "Perform a firmware update",
   args: [deviceOpt],
   job: ({ device }: $Shape<{ device: string }>) =>
-    withDevice(device || "")(t => from(getDeviceInfo(t))).pipe(
+    withDevice(device || "")((t) => from(getDeviceInfo(t))).pipe(
       mergeMap(manager.getLatestFirmwareForDevice),
-      mergeMap(firmware => {
+      mergeMap((firmware) => {
         if (!firmware) return of("already up to date");
         return concat(
           of(
             `firmware: ${firmware.final.name}\nOSU: ${firmware.osu.name} (hash: ${firmware.osu.hash})`
           ),
-          prepareFirmwareUpdate("", firmware),
-          mainFirmwareUpdate("", firmware)
+          prepareFirmwareUpdate(device || "", firmware),
+          mainFirmwareUpdate(device || "", firmware)
         );
       })
-    )
+    ),
 };

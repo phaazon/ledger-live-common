@@ -6,7 +6,7 @@ import invariant from "invariant";
 async function broadcast({
   core,
   coreAccount,
-  signedOperation: { operation, signature }
+  signedOperation: { operation, signature },
 }) {
   const ethereumLikeAccount = core.EthereumLikeAccount.fromCoreAccount(
     coreAccount
@@ -17,5 +17,5 @@ async function broadcast({
 }
 
 export default makeBroadcast({
-  broadcast
+  broadcast,
 });

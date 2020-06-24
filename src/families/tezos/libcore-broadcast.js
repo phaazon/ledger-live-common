@@ -7,7 +7,7 @@ import invariant from "invariant";
 async function broadcast({
   core,
   coreAccount,
-  signedOperation: { operation, signature }
+  signedOperation: { operation, signature },
 }): Promise<Operation> {
   const tezosLikeAccount = await new core.Tezos().fromCoreAccount(coreAccount);
   invariant(tezosLikeAccount, "tezos account expected");

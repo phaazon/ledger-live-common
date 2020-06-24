@@ -2,19 +2,19 @@
 import {
   AccountNotSupported,
   CurrencyNotSupported,
-  UnavailableTezosOriginatedAccountReceive
+  UnavailableTezosOriginatedAccountReceive,
 } from "@ledgerhq/errors";
 import type {
   Account,
   AccountLike,
   CryptoCurrency,
-  DerivationMode
+  DerivationMode,
 } from "../types";
 import { getEnv } from "../env";
 import { decodeAccountId } from "./accountId";
 import {
   getAllDerivationModes,
-  getDerivationModesForCurrency
+  getDerivationModesForCurrency,
 } from "../derivation";
 import { isCurrencySupported } from "../currencies";
 import { getMainAccount } from "../account";
@@ -24,7 +24,7 @@ export const libcoreNoGo = [
   "ripple", // still WIP
   "ethereum_classic", // LLC-308
   "tron",
-  "neo"
+  "neo",
 ];
 
 export const libcoreNoGoBalanceHistory = () =>
@@ -69,9 +69,10 @@ export function canSend(
 
 export function canBeMigrated(account: Account) {
   try {
-    const { type } = decodeAccountId(account.id);
-    if (libcoreNoGo.includes(account.currency.id)) return false;
-    return type === "ethereumjs";
+    const { type, version } = decodeAccountId(account.id);
+    const mock = getEnv("MOCK");
+    if (!mock && libcoreNoGo.includes(account.currency.id)) return false;
+    return type === "ethereumjs" || (mock && version === "0");
   } catch (e) {
     return false;
   }
@@ -84,9 +85,9 @@ export function findAccountMigration(
 ): ?Account {
   if (!canBeMigrated(account)) return;
   const { type } = decodeAccountId(account.id);
-  if (type === "ethereumjs") {
+  if (type === "ethereumjs" || getEnv("MOCK")) {
     return scannedAccounts.find(
-      a =>
+      (a) =>
         a.id !== account.id && // a migration assume an id changes
         a.currency === account.currency &&
         a.freshAddress === account.freshAddress
@@ -104,7 +105,7 @@ export function checkAccountSupported(account: Account): ?Error {
 
   if (!isCurrencySupported(account.currency)) {
     return new CurrencyNotSupported("currency not supported", {
-      currencyName: account.currency.name
+      currencyName: account.currency.name,
     });
   }
 }

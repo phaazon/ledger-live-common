@@ -11,14 +11,20 @@ libcore-buildOperation.js \
 libcore-buildSubAccounts.js \
 libcore-getFeesForTransaction.js \
 libcore-postSyncPatch.js \
+libcore-postBuildAccount.js \
 libcore-getAccountNetworkInfo.js \
 transaction.js \
 bridge/js.js \
 bridge/libcore.js \
 bridge/mock.js \
 cli-transaction.js \
+specs.js \
+speculos-deviceActions.js \
+deviceTransactionConfig.js \
 test-dataset.js \
 test-specifics.js \
+mock.js \
+account.js \
 "
 
 cd ../src
@@ -71,6 +77,25 @@ for t in $targets; do
 done
 
 # types
+
+genDeviceTransactionConfig () {
+  for family in $families; do
+    if [ -f $family/deviceTransactionConfig.js ]; then
+      if grep -q "export type ExtraDeviceTransactionField" "$family/deviceTransactionConfig.js"; then
+        echo 'import type { ExtraDeviceTransactionField as ExtraDeviceTransactionField_'$family' } from "../families/'$family'/deviceTransactionConfig";'
+      fi
+    fi
+  done
+
+  echo 'export type ExtraDeviceTransactionField ='
+  for family in $families; do
+    if [ -f $family/deviceTransactionConfig.js ]; then
+      if grep -q "export type ExtraDeviceTransactionField" "$family/deviceTransactionConfig.js"; then
+        echo '| ExtraDeviceTransactionField_'$family
+      fi
+    fi
+  done
+}
 
 genTypesFile () {
   echo '// @flow'
@@ -126,3 +151,5 @@ genTypesFile () {
 }
 
 genTypesFile > ../generated/types.js
+
+genDeviceTransactionConfig >> ../generated/deviceTransactionConfig.js

@@ -10,7 +10,7 @@ import { getEnv } from "../../env";
 
 export const OperationTypeMap = {
   "0": "OUT",
-  "1": "IN"
+  "1": "IN",
 };
 
 export async function buildOperation(arg: {
@@ -18,7 +18,7 @@ export async function buildOperation(arg: {
   coreOperation: CoreOperation,
   accountId: string,
   currency: CryptoCurrency,
-  contextualSubAccounts?: ?(SubAccount[])
+  contextualSubAccounts?: ?(SubAccount[]),
 }) {
   const { coreOperation, accountId, currency, contextualSubAccounts } = arg;
   const buildOp = perFamily[currency.family];
@@ -44,7 +44,7 @@ export async function buildOperation(arg: {
 
   const [recipients, senders] = await Promise.all([
     coreOperation.getRecipients(),
-    coreOperation.getSenders()
+    coreOperation.getSenders(),
   ]);
 
   const date = new Date(await coreOperation.getDate());
@@ -59,12 +59,14 @@ export async function buildOperation(arg: {
     blockHash: null,
     accountId,
     date,
-    extra: {}
+    extra: {},
   };
 
   const rest = await buildOp(arg, partialOp);
   if (!rest) return null;
-  const id = `${accountId}-${rest.hash}-${rest.type || type}`;
+  const id = `${accountId}-${rest.hash}-${rest.type || type}${
+    rest.extra && rest.extra.id ? "-" + rest.extra.id : ""
+  }`;
 
   const op: $Exact<Operation> = {
     id,
@@ -72,7 +74,7 @@ export async function buildOperation(arg: {
       ? inferSubOperations(rest.hash, contextualSubAccounts)
       : undefined,
     ...partialOp,
-    ...rest
+    ...rest,
   };
 
   const OPERATION_ADDRESSES_LIMIT = getEnv("OPERATION_ADDRESSES_LIMIT");

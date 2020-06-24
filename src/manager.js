@@ -2,25 +2,27 @@
 /* eslint-disable camelcase */
 // Higher level cache on top of Manager
 
+import semver from "semver";
+import type { DeviceModelId } from "@ledgerhq/devices";
 import { UnknownMCU } from "@ledgerhq/errors";
 import type {
   ApplicationVersion,
   DeviceInfo,
   OsuFirmware,
-  FirmwareUpdateContext
+  FirmwareUpdateContext,
 } from "./types/manager";
 import { listCryptoCurrencies } from "./currencies";
 import ManagerAPI from "./api/Manager";
 
 const ICONS_FALLBACK = {
-  bitcoin_testnet: "bitcoin"
+  bitcoin_testnet: "bitcoin",
 };
 
 const oldAppsInstallDisabled = ["ZenCash", "Ripple", "Ontology"];
 const canHandleInstall = (app: ApplicationVersion) =>
   !oldAppsInstallDisabled.includes(app.name) &&
   !listCryptoCurrencies(true, true).some(
-    coin =>
+    (coin) =>
       coin.managerAppName &&
       coin.terminated &&
       coin.managerAppName.toLowerCase() === app.name.toLowerCase()
@@ -37,9 +39,45 @@ const CacheAPI = {
   getFirmwareVersion: (firmware: OsuFirmware): string =>
     firmware.name.replace("-osu", ""),
 
-  formatHashName: (input: string): string => {
+  // TO BE CONFIRMED – LL-2568
+  firmwareUpdateNeedsLegacyBlueResetInstructions: (
+    deviceInfo: DeviceInfo,
+    deviceModelId: DeviceModelId
+  ) => deviceModelId === "blue" && semver.lt(deviceInfo.version, "2.1.1"),
+
+  // TO BE CONFIRMED – LL-2564
+  firmwareUpdateWillResetSeed: (
+    deviceInfo: DeviceInfo,
+    deviceModelId: DeviceModelId,
+    _firmware: FirmwareUpdateContext
+  ) => deviceModelId === "blue" && semver.lt(deviceInfo.version, "2.1.1"),
+
+  firmwareUpdateWillUninstallApps: (
+    _deviceInfo: DeviceInfo,
+    _deviceModelId: DeviceModelId
+  ) => true, // true for all? TO BE CONFIRMED – LL-2710
+
+  firmwareUpdateRequiresUserToUninstallApps: (
+    deviceModel: DeviceModelId,
+    deviceInfo: DeviceInfo
+  ): boolean =>
+    deviceModel === "nanoS" && semver.lte(deviceInfo.version, "1.4.2"),
+
+  formatHashName: (
+    input: string,
+    // FIXME these will be made mandatory
+    deviceModel?: DeviceModelId,
+    deviceInfo?: DeviceInfo
+  ): string => {
+    const shouldEllipsis =
+      deviceModel && deviceInfo
+        ? deviceModel === "blue" ||
+          (deviceModel === "nanoS" && semver.lt(deviceInfo.version, "1.6.0"))
+        : true;
     const hash = (input || "").toUpperCase();
-    return hash.length > 8 ? `${hash.slice(0, 4)}...${hash.substr(-4)}` : hash;
+    return hash.length > 8 && shouldEllipsis
+      ? `${hash.slice(0, 4)}...${hash.substr(-4)}`
+      : hash;
   },
 
   canHandleInstall,
@@ -61,21 +99,21 @@ const CacheAPI = {
       osu = await ManagerAPI.getCurrentOSU({
         deviceId: deviceVersion.id,
         provider: deviceInfo.providerId,
-        version: deviceInfo.version
+        version: deviceInfo.version,
       });
     } else {
       // Get firmware infos with firmware name and device version
       const seFirmwareVersion = await ManagerAPI.getCurrentFirmware({
         version: deviceInfo.version,
         deviceId: deviceVersion.id,
-        provider: deviceInfo.providerId
+        provider: deviceInfo.providerId,
       });
 
       // Fetch next possible firmware
       osu = await ManagerAPI.getLatestFirmware({
         current_se_firmware_final_version: seFirmwareVersion.id,
         device_version: deviceVersion.id,
-        provider: deviceInfo.providerId
+        provider: deviceInfo.providerId,
       });
     }
 
@@ -90,7 +128,7 @@ const CacheAPI = {
     const mcus = await mcusPromise;
 
     const currentMcuVersion = mcus.find(
-      mcu => mcu.name === deviceInfo.mcuVersion
+      (mcu) => mcu.name === deviceInfo.mcuVersion
     );
 
     if (!currentMcuVersion) throw new UnknownMCU();
@@ -116,39 +154,39 @@ const CacheAPI = {
       deviceInfo.providerId
     );
 
-    const firmwareDataP = deviceVersionP.then(deviceVersion =>
+    const firmwareDataP = deviceVersionP.then((deviceVersion) =>
       ManagerAPI.getCurrentFirmware({
         deviceId: deviceVersion.id,
         version: deviceInfo.version,
-        provider: deviceInfo.providerId
+        provider: deviceInfo.providerId,
       })
     );
 
     const applicationsByDeviceP = Promise.all([
       deviceVersionP,
-      firmwareDataP
+      firmwareDataP,
     ]).then(([deviceVersion, firmwareData]) =>
       ManagerAPI.applicationsByDevice({
         provider: deviceInfo.providerId,
         current_se_firmware_final_version: firmwareData.id,
-        device_version: deviceVersion.id
+        device_version: deviceVersion.id,
       })
     );
 
     const [
       applicationsList,
       compatibleAppVersionsList,
-      sortedCryptoCurrencies
+      sortedCryptoCurrencies,
     ] = await Promise.all([
       ManagerAPI.listApps(),
       applicationsByDeviceP,
-      getFullListSortedCryptoCurrencies()
+      getFullListSortedCryptoCurrencies(),
     ]);
 
     const filtered = isDevMode
       ? compatibleAppVersionsList.slice(0)
-      : compatibleAppVersionsList.filter(version => {
-          const app = applicationsList.find(e => e.id === version.app);
+      : compatibleAppVersionsList.filter((version) => {
+          const app = applicationsList.find((e) => e.id === version.app);
           if (app) {
             return app.category !== 2;
           }
@@ -156,9 +194,10 @@ const CacheAPI = {
         });
     const sortedCryptoApps = [];
     // sort by crypto first
-    sortedCryptoCurrencies.forEach(crypto => {
+    sortedCryptoCurrencies.forEach((crypto) => {
       const app = filtered.find(
-        item => item.name.toLowerCase() === crypto.managerAppName.toLowerCase()
+        (item) =>
+          item.name.toLowerCase() === crypto.managerAppName.toLowerCase()
       );
       if (app) {
         filtered.splice(filtered.indexOf(app), 1);
@@ -167,7 +206,7 @@ const CacheAPI = {
     });
 
     return sortedCryptoApps.concat(filtered);
-  }
+  },
 };
 
 export default CacheAPI;

@@ -22,7 +22,7 @@ async function ripple({ core, coreAccount }: Input): Output {
   return {
     family: "ripple",
     serverFee,
-    baseReserve
+    baseReserve,
   };
 }
 

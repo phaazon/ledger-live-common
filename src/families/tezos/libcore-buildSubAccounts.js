@@ -4,7 +4,7 @@ import type { CryptoCurrency, ChildAccount, Account } from "../../types";
 import type { Core, CoreAccount } from "../../libcore/types";
 import type {
   CoreTezosLikeOriginatedAccount,
-  CoreTezosLikeAccount
+  CoreTezosLikeAccount,
 } from "./types";
 import { libcoreAmountToBigNumber } from "../../libcore/buildBigNumber";
 import { buildOperation } from "../../libcore/buildAccount/buildOperation";
@@ -13,7 +13,7 @@ import { shortAddressPreview } from "../../account";
 import invariant from "invariant";
 
 const OperationOrderKey = {
-  date: 0
+  date: 0,
 };
 
 async function buildOriginatedAccount({
@@ -21,13 +21,13 @@ async function buildOriginatedAccount({
   parentAccountId,
   currency,
   coreOriginatedAccount,
-  existingOriginatedAccount
+  existingOriginatedAccount,
 }: {
   core: Core,
   parentAccountId: string,
   currency: CryptoCurrency,
   coreOriginatedAccount: CoreTezosLikeOriginatedAccount,
-  existingOriginatedAccount: ChildAccount
+  existingOriginatedAccount: ChildAccount,
 }) {
   let balance = await libcoreAmountToBigNumber(
     await coreOriginatedAccount.getBalance()
@@ -43,12 +43,12 @@ async function buildOriginatedAccount({
   const operations = await minimalOperationsBuilder(
     (existingOriginatedAccount && existingOriginatedAccount.operations) || [],
     coreOperations,
-    coreOperation =>
+    (coreOperation) =>
       buildOperation({
         core,
         coreOperation,
         accountId: id,
-        currency
+        currency,
       })
   );
 
@@ -63,7 +63,11 @@ async function buildOriginatedAccount({
     balance,
     operationsCount: operations.length,
     operations,
-    pendingOperations: []
+    pendingOperations: [],
+    creationDate:
+      operations.length > 0
+        ? operations[operations.length - 1].date
+        : new Date(),
   };
 
   return originatedAccount;
@@ -74,13 +78,13 @@ async function tezosBuildOriginatedAccount({
   core,
   coreAccount,
   accountId,
-  existingAccount
+  existingAccount,
 }: {
   currency: CryptoCurrency,
   core: Core,
   coreAccount: CoreAccount,
   accountId: string,
-  existingAccount: ?Account
+  existingAccount: ?Account,
 }): Promise<?(ChildAccount[])> {
   const originatedAccounts = [];
   const xtzAccount: CoreTezosLikeAccount = await new core.Tezos().fromCoreAccount(
@@ -110,7 +114,7 @@ async function tezosBuildOriginatedAccount({
       parentAccountId: accountId,
       currency,
       coreOriginatedAccount: coreOA,
-      existingOriginatedAccount
+      existingOriginatedAccount,
     });
 
     if (originatedAccount) originatedAccounts.push(originatedAccount);

@@ -8,7 +8,7 @@ import invariant from "invariant";
 const opTagToType = {
   [tezosOperationTag.OPERATION_TAG_REVEAL]: "REVEAL",
   [tezosOperationTag.OPERATION_TAG_ORIGINATION]: "CREATE",
-  [tezosOperationTag.OPERATION_TAG_DELEGATION]: "DELEGATE"
+  [tezosOperationTag.OPERATION_TAG_DELEGATION]: "DELEGATE",
 };
 
 async function tezosBuildOperation(

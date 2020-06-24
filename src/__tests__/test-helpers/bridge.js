@@ -16,20 +16,22 @@ import type {
   AccountBridge,
   CurrencyBridge,
   SignedOperation,
-  SyncConfig
+  SyncConfig,
 } from "../../types";
 import {
   fromAccountRaw,
   toAccountRaw,
   decodeAccountId,
-  encodeAccountId
+  encodeAccountId,
+  flattenAccounts,
+  isAccountBalanceUnconfirmed,
 } from "../../account";
 import { getCryptoCurrencyById } from "../../currencies";
 import { getOperationAmountNumber } from "../../operation";
 import {
   fromTransactionRaw,
   toTransactionRaw,
-  toTransactionStatusRaw
+  toTransactionStatusRaw,
 } from "../../transaction";
 import { getBalanceHistoryJS, getRanges } from "../../portfolio";
 import { getAccountBridge, getCurrencyBridge } from "../../bridge";
@@ -44,7 +46,11 @@ export type CurrenciesData<T: Transaction> = {|
     name: string,
     apdus: string,
     unstableAccounts?: boolean,
-    test?: (expect: ExpectFn, scanned: Account[], bridge: CurrencyBridge) => any
+    test?: (
+      expect: ExpectFn,
+      scanned: Account[],
+      bridge: CurrencyBridge
+    ) => any,
   |}>,
   accounts?: Array<{|
     implementations?: string[],
@@ -65,24 +71,24 @@ export type CurrenciesData<T: Transaction> = {|
         T,
         TransactionStatus,
         AccountBridge<T>
-      ) => any
+      ) => any,
     |}>,
-    test?: (ExpectFn, Account, AccountBridge<T>) => any
+    test?: (ExpectFn, Account, AccountBridge<T>) => any,
   |}>,
-  test?: (ExpectFn, CurrencyBridge) => any
+  test?: (ExpectFn, CurrencyBridge) => any,
 |};
 
 export type DatasetTest<T> = {|
   implementations: string[],
   currencies: {
-    [_: CryptoCurrencyIds]: CurrenciesData<T>
-  }
+    [_: CryptoCurrencyIds]: CurrenciesData<T>,
+  },
 |};
 
 // FIXME move out into DatasetTest to be defined in
 const blacklistOpsSumEq = {
   currencies: ["ripple", "ethereum"],
-  impls: ["mock"]
+  impls: ["mock"],
 };
 
 function expectBalanceIsOpsSum(a) {
@@ -101,7 +107,7 @@ export function syncAccount<T: Transaction>(
 ): Promise<Account> {
   return bridge
     .sync(account, syncConfig)
-    .pipe(reduce((a, f: Account => Account) => f(a), account))
+    .pipe(reduce((a, f: (Account) => Account) => f(a), account))
     .toPromise();
 }
 
@@ -113,19 +119,19 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
   const currenciesRelated = [];
 
   const { implementations, currencies } = data;
-  Object.keys(currencies).forEach(currencyId => {
+  Object.keys(currencies).forEach((currencyId) => {
     const currencyData = currencies[currencyId];
     const currency = getCryptoCurrencyById(currencyId);
 
     currenciesRelated.push({
       currencyData,
-      currency
+      currency,
     });
 
     const accounts = currencyData.accounts || [];
 
-    accounts.forEach(accountData =>
-      implementations.forEach(impl => {
+    accounts.forEach((accountData) =>
+      implementations.forEach((impl) => {
         if (
           accountData.implementations &&
           !accountData.implementations.includes(impl)
@@ -136,14 +142,14 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
           ...accountData.raw,
           id: encodeAccountId({
             ...decodeAccountId(accountData.raw.id),
-            type: impl
-          })
+            type: impl,
+          }),
         });
         accountsRelated.push({
           currencyData,
           accountData,
           account,
-          impl
+          impl,
         });
       })
     );
@@ -155,7 +161,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
   currenciesRelated.map(({ currencyData, currency }) => {
     const bridge = getCurrencyBridge(currency);
 
-    const scanAccounts = async apdus => {
+    const scanAccounts = async (apdus) => {
       const deviceId = mockDeviceWithAPDUs(apdus);
       try {
         const accounts = await bridge
@@ -163,12 +169,12 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
             currency,
             deviceId,
             syncConfig: {
-              paginationConfig: {}
-            }
+              paginationConfig: {},
+            },
           })
           .pipe(
-            filter(e => e.type === "discovered"),
-            map(e => e.account),
+            filter((e) => e.type === "discovered"),
+            map((e) => e.account),
             reduce((all, a) => all.concat(a), [])
           )
           .toPromise();
@@ -180,7 +186,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
     };
 
     let scanAccountsCaches = {};
-    const scanAccountsCached = apdus =>
+    const scanAccountsCached = (apdus) =>
       scanAccountsCaches[apdus] ||
       (scanAccountsCaches[apdus] = scanAccounts(apdus));
 
@@ -188,7 +194,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
       const {
         scanAccounts,
         FIXME_ignoreAccountFields,
-        FIXME_ignoreOperationFields
+        FIXME_ignoreOperationFields,
       } = currencyData;
       if (scanAccounts) {
         if (FIXME_ignoreOperationFields) {
@@ -206,7 +212,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
           );
         }
         describe("scanAccounts", () => {
-          scanAccounts.forEach(sa => {
+          scanAccounts.forEach((sa) => {
             // we start running the scan accounts in parallel!
             preloadObservables.push(
               defer(() =>
@@ -222,25 +228,26 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
             test(sa.name, async () => {
               const accounts = await scanAccountsCached(sa.apdus);
 
-              accounts.forEach(a => {
+              accounts.forEach((a) => {
                 accountsFoundInScanAccountsMap[a.id] = a;
               });
 
               if (!sa.unstableAccounts) {
-                const raws = flatMap(accounts, a => {
+                const raws = flatMap(accounts, (a) => {
                   const main = toAccountRaw(a);
                   if (!main.subAccounts) return [main];
                   return [{ ...main, subAccounts: [] }, ...main.subAccounts];
                 });
 
-                const heads = raws.map(a => {
+                const heads = raws.map((a) => {
                   const copy = omit(
                     a,
                     [
                       "operations",
                       "lastSyncDate",
+                      "creationDate",
                       "blockHeight",
-                      "balanceHistory"
+                      "balanceHistory",
                     ].concat(FIXME_ignoreAccountFields || [])
                   );
                   return copy;
@@ -250,7 +257,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
                   operations
                     .slice(0)
                     .sort((a, b) => a.id.localeCompare(b.id))
-                    .map(op => {
+                    .map((op) => {
                       const copy = omit(
                         op,
                         ["date"].concat(FIXME_ignoreOperationFields || [])
@@ -274,17 +281,49 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
               for (const account of accounts) {
                 const accountBridge = getAccountBridge(account);
                 const estimation = await accountBridge.estimateMaxSpendable({
-                  account
+                  account,
                 });
                 expect(estimation.gte(0)).toBe(true);
                 expect(estimation.lte(account.spendableBalance)).toBe(true);
                 for (const sub of account.subAccounts || []) {
                   const estimation = await accountBridge.estimateMaxSpendable({
                     parentAccount: account,
-                    account: sub
+                    account: sub,
                   });
                   expect(estimation.gte(0)).toBe(true);
                   expect(estimation.lte(sub.balance)).toBe(true);
+                }
+              }
+            });
+
+            test("no unconfirmed account", async () => {
+              const accounts = await scanAccountsCached(sa.apdus);
+              for (const account of flattenAccounts(accounts)) {
+                expect({
+                  id: account.id,
+                  unconfirmed: isAccountBalanceUnconfirmed(account),
+                }).toEqual({
+                  id: account.id,
+                  unconfirmed: false,
+                });
+              }
+            });
+
+            test("creationDate is correct", async () => {
+              const accounts = await scanAccountsCached(sa.apdus);
+              for (const account of flattenAccounts(accounts)) {
+                if (account.operations.length) {
+                  const op = account.operations[account.operations.length - 1];
+                  if (account.creationDate.getTime() > op.date.getTime()) {
+                    console.warn(
+                      `OP ${
+                        op.id
+                      } have date=${op.date.toISOString()} older than account.creationDate=${account.creationDate.toISOString()}`
+                    );
+                  }
+                  expect(account.creationDate.getTime()).not.toBeGreaterThan(
+                    op.date.getTime()
+                  );
                 }
               }
             });
@@ -354,13 +393,13 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
         (accountSyncedPromise = syncAccount(bridge, account));
       return { getSynced, bridge, initialAccount: account, ...rest };
     })
-    .forEach(arg => {
+    .forEach((arg) => {
       const { getSynced, bridge, initialAccount, accountData, impl } = arg;
 
       const makeTest = (name, fn) => {
         if (
           accountData.FIXME_tests &&
-          accountData.FIXME_tests.some(r => name.match(r))
+          accountData.FIXME_tests.some((r) => name.match(r))
         ) {
           console.warn(
             "FIXME test was skipped. " + name + " for " + initialAccount.name
@@ -451,7 +490,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
                 ...account,
                 operations,
                 pendingOperations,
-                blockHeight: 0
+                blockHeight: 0,
               };
               const synced = await syncAccount(bridge, copy);
               // same ops are restored
@@ -464,7 +503,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
           makeTest("there are no Operation dups (by id)", async () => {
             const account = await getSynced();
             const seen = {};
-            account.operations.forEach(op => {
+            account.operations.forEach((op) => {
               expect(seen[op.id]).toBeUndefined();
               seen[op.id] = op.id;
             });
@@ -475,13 +514,13 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
           "account balanceHistory (when exists) matches getBalanceHistoryJS",
           async () => {
             const account = await getSynced();
-            getRanges().forEach(range => {
+            getRanges().forEach((range) => {
               const balanceHistory =
                 account.balanceHistory && account.balanceHistory[range];
               if (!balanceHistory) return;
               const history = getBalanceHistoryJS(account, range);
-              expect(balanceHistory.map(b => b.value)).toEqual(
-                history.map(b => b.value)
+              expect(balanceHistory.map((b) => b.value)).toEqual(
+                history.map((b) => b.value)
               );
             });
           }
@@ -493,7 +532,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
             () => {
               expect(bridge.createTransaction(initialAccount)).toMatchObject({
                 amount: BigNumber(0),
-                recipient: ""
+                recipient: "",
               });
             }
           );
@@ -516,7 +555,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
               const t = {
                 ...bridge.createTransaction(account),
                 amount: BigNumber(1000),
-                recipient: account.freshAddress
+                recipient: account.freshAddress,
               };
               expect(fromTransactionRaw(toTransactionRaw(t))).toEqual(t);
             }
@@ -541,7 +580,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
             await expectStability(account, {
               ...bridge.createTransaction(account),
               amount: BigNumber(1000),
-              recipient: account.freshAddress
+              recipient: account.freshAddress,
             });
           });
 
@@ -552,7 +591,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
               const t = {
                 ...bridge.createTransaction(account),
                 amount: BigNumber(1000),
-                recipient: account.freshAddress
+                recipient: account.freshAddress,
               };
               const stable = await bridge.prepareTransaction(account, t);
               const first = await bridge.prepareTransaction(account, stable);
@@ -561,7 +600,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
                   .fill(null)
                   .map(() => bridge.prepareTransaction(account, stable))
               );
-              concur.forEach(r => {
+              concur.forEach((r) => {
                 expect(r).toEqual(first);
               });
             }
@@ -604,7 +643,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
             async () => {
               const account = await getSynced();
               let t = {
-                ...bridge.createTransaction(account)
+                ...bridge.createTransaction(account),
               };
               let status = await bridge.getTransactionStatus(account, t);
               expect(status.errors.recipient).toEqual(new RecipientRequired());
@@ -615,7 +654,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
             const account = await getSynced();
             let t = {
               ...bridge.createTransaction(account),
-              recipient: "invalidADDRESS"
+              recipient: "invalidADDRESS",
             };
             let status = await bridge.getTransactionStatus(account, t);
             expect(status.errors.recipient).toEqual(new InvalidAddress());
@@ -635,7 +674,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
               expectedStatus,
               apdus,
               testSignedOperation,
-              test: testFn
+              test: testFn,
             }) => {
               makeTest("transaction " + name, async () => {
                 const account: Account = await getSynced();
@@ -663,7 +702,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
                   // now we match rest of fields but using the raw version for better readability
                   const restRaw: Object = toTransactionStatusRaw({
                     ...s,
-                    ...es
+                    ...es,
                   });
                   delete restRaw.errors;
                   delete restRaw.warnings;
@@ -683,7 +722,7 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
                   const { subAccounts } = account;
                   const inferSubAccount = () => {
                     invariant(subAccounts, "sub accounts available");
-                    const a = subAccounts.find(a => a.id === subAccountId);
+                    const a = subAccounts.find((a) => a.id === subAccountId);
                     invariant(a, "sub account not found");
                     return a;
                   };
@@ -691,11 +730,11 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
                     ? {
                         transaction: t,
                         account: inferSubAccount(),
-                        parentAccount: account
+                        parentAccount: account,
                       }
                     : {
                         transaction: t,
-                        account
+                        account,
                       };
 
                   if (typeof t.mode !== "string" || t.mode === "send") {
@@ -715,11 +754,11 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
                       .signOperation({
                         account,
                         deviceId,
-                        transaction: t
+                        transaction: t,
                       })
                       .pipe(
-                        filter(e => e.type === "signed"),
-                        map(e => e.signedOperation)
+                        filter((e) => e.type === "signed"),
+                        map((e) => e.signedOperation)
                       )
                       .toPromise();
 
@@ -754,6 +793,6 @@ export function testBridge<T>(family: string, data: DatasetTest<T>) {
     });
 
   return {
-    preloadObservables
+    preloadObservables,
   };
 }

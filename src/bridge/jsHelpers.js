@@ -10,37 +10,37 @@ import {
   isIterableDerivationMode,
   derivationModeSupportsIndex,
   getMandatoryEmptyAccountSkip,
-  getDerivationModeStartsAt
+  getDerivationModeStartsAt,
 } from "../derivation";
 import {
   getAccountPlaceholderName,
   getNewAccountPlaceholderName,
-  shouldRetainPendingOperation
+  shouldRetainPendingOperation,
 } from "../account";
 import uniqBy from "lodash/uniqBy";
 import type {
   Operation,
   Account,
   ScanAccountEvent,
-  SyncConfig
+  SyncConfig,
 } from "../types";
 import type { CurrencyBridge, AccountBridge } from "../types/bridge";
 import getAddress from "../hw/getAddress";
-import { open } from "../hw";
+import { open, close } from "../hw";
 
 type GetAccountShape = (
   { address: string, id: string, initialAccount?: Account },
   SyncConfig
 ) => Promise<$Shape<Account>>;
 
-type AccountUpdater = Account => Account;
+type AccountUpdater = (Account) => Account;
 
 export function mergeOps(
   existing: Operation[],
   newFetched: Operation[]
 ): Operation[] {
-  const ids = existing.map(o => o.id);
-  const all = newFetched.filter(o => !ids.includes(o.id)).concat(existing);
+  const ids = existing.map((o) => o.id);
+  const all = newFetched.filter((o) => !ids.includes(o.id)).concat(existing);
   return uniqBy(
     all.sort((a, b) => b.date - a.date),
     "id"
@@ -49,34 +49,38 @@ export function mergeOps(
 
 export const makeSync = (
   getAccountShape: GetAccountShape,
-  postSync: Account => Account = a => a
+  postSync: (Account) => Account = (a) => a
 ): $PropertyType<AccountBridge<any>, "sync"> => (
   initial,
   syncConfig
 ): Observable<AccountUpdater> =>
-  Observable.create(o => {
+  Observable.create((o) => {
     async function main() {
       try {
         const shape = await getAccountShape(
           {
             id: initial.id,
             address: initial.freshAddress,
-            initialAccount: initial
+            initialAccount: initial,
           },
           syncConfig
         );
-        o.next(a => {
+        o.next((a) => {
           const operations = mergeOps(a.operations, shape.operations || []);
           return postSync({
             ...a,
             spendableBalance: shape.balance || a.balance,
             operationsCount: shape.operationsCount || operations.length,
             lastSyncDate: new Date(),
+            creationDate:
+              operations.length > 0
+                ? operations[operations.length - 1].date
+                : new Date(),
             ...shape,
             operations,
-            pendingOperations: a.pendingOperations.filter(op =>
+            pendingOperations: a.pendingOperations.filter((op) =>
               shouldRetainPendingOperation(a, op)
-            )
+            ),
           });
         });
         o.complete();
@@ -92,9 +96,9 @@ export const makeScanAccounts = (
 ): $PropertyType<CurrencyBridge, "scanAccounts"> => ({
   currency,
   deviceId,
-  syncConfig
+  syncConfig,
 }): Observable<ScanAccountEvent> =>
-  Observable.create(o => {
+  Observable.create((o) => {
     let finished = false;
     const unsubscribe = () => {
       finished = true;
@@ -116,7 +120,7 @@ export const makeScanAccounts = (
       const accountShape: Account = await getAccountShape(
         {
           id: accountId,
-          address
+          address,
         },
         syncConfig
       );
@@ -125,6 +129,10 @@ export const makeScanAccounts = (
       const freshAddress = address;
       const operations = accountShape.operations || [];
       const operationsCount = accountShape.operationsCount || operations.length;
+      const creationDate =
+        operations.length > 0
+          ? operations[operations.length - 1].date
+          : new Date();
       const balance = accountShape.balance || BigNumber(0);
       const spendableBalance = accountShape.spendableBalance || BigNumber(0);
 
@@ -150,14 +158,14 @@ export const makeScanAccounts = (
               freshAddresses: [
                 {
                   address: freshAddress,
-                  derivationPath: freshAddressPath
-                }
+                  derivationPath: freshAddressPath,
+                },
               ],
               derivationMode,
               name: getNewAccountPlaceholderName({
                 currency,
                 index,
-                derivationMode
+                derivationMode,
               }),
               starred: false,
               index,
@@ -167,11 +175,12 @@ export const makeScanAccounts = (
               pendingOperations: [],
               unit: currency.units[0],
               lastSyncDate: new Date(),
+              creationDate,
               // overrides
               balance,
               spendableBalance,
               blockHeight: 0,
-              ...accountShape
+              ...accountShape,
             };
             return { account, complete: true };
           }
@@ -194,8 +203,8 @@ export const makeScanAccounts = (
         freshAddresses: [
           {
             address: freshAddress,
-            derivationPath: freshAddressPath
-          }
+            derivationPath: freshAddressPath,
+          },
         ],
         derivationMode,
         name: getAccountPlaceholderName({ currency, index, derivationMode }),
@@ -207,11 +216,12 @@ export const makeScanAccounts = (
         pendingOperations: [],
         unit: currency.units[0],
         lastSyncDate: new Date(),
+        creationDate,
         // overrides
         balance,
         spendableBalance,
         blockHeight: 0,
-        ...accountShape
+        ...accountShape,
       };
       return { account };
     }
@@ -228,7 +238,7 @@ export const makeScanAccounts = (
           const result = await getAddress(transport, {
             currency,
             path,
-            derivationMode
+            derivationMode,
           });
           const seedIdentifier = result.publicKey;
 
@@ -238,7 +248,7 @@ export const makeScanAccounts = (
           );
           const derivationScheme = getDerivationScheme({
             derivationMode,
-            currency
+            currency,
           });
           const stopAt = isIterableDerivationMode(derivationMode) ? 255 : 1;
           const startsAt = getDerivationModeStartsAt(derivationMode);
@@ -248,13 +258,13 @@ export const makeScanAccounts = (
               derivationScheme,
               currency,
               {
-                account: index
+                account: index,
               }
             );
             const res = await getAddress(transport, {
               currency,
               path: freshAddressPath,
-              derivationMode
+              derivationMode,
             });
             const r = await stepAddress(
               index,
@@ -277,7 +287,9 @@ export const makeScanAccounts = (
       } catch (e) {
         o.error(e);
       } finally {
-        if (transport) transport.close();
+        if (transport) {
+          close(transport, deviceId);
+        }
       }
     }
 

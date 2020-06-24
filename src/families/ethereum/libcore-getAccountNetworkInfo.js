@@ -8,7 +8,7 @@ import invariant from "invariant";
 type Input = {
   core: Core,
   coreAccount: CoreAccount,
-  account: Account
+  account: Account,
 };
 
 type Output = Promise<NetworkInfo>;
@@ -22,7 +22,7 @@ async function ethereum({ core, coreAccount }: Input): Output {
   const gasPrice = await libcoreBigIntToBigNumber(bigInt);
   return {
     family: "ethereum",
-    gasPrice
+    gasPrice,
   };
 }
 

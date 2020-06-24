@@ -11,14 +11,15 @@ import type {
   AccountRaw,
   SubAccount,
   SubAccountRaw,
-  BalanceHistoryRawMap
+  BalanceHistoryRawMap,
 } from "./types";
 import {
   fromAccountRaw,
   fromOperationRaw,
   fromSubAccountRaw,
   fromTronResourcesRaw,
-  fromBalanceHistoryRawMap
+  fromCosmosResourcesRaw,
+  fromBalanceHistoryRawMap,
 } from "./account";
 
 const sameOp = (a: Operation, b: Operation) =>
@@ -31,7 +32,7 @@ const sameOp = (a: Operation, b: Operation) =>
     isEqual(a.recipients, b.recipients));
 
 function findExistingOp(ops, op) {
-  return ops.find(o => o.id === op.id);
+  return ops.find((o) => o.id === op.id);
 }
 
 // aim to build operations with the minimal diff & call to libcore possible
@@ -186,8 +187,8 @@ export function patchAccount(
     const existingSubAccounts = account.subAccounts || [];
     let subAccountsChanged =
       updatedRaw.subAccounts.length !== existingSubAccounts.length;
-    subAccounts = updatedRaw.subAccounts.map(ta => {
-      const existing = existingSubAccounts.find(t => t.id === ta.id);
+    subAccounts = updatedRaw.subAccounts.map((ta) => {
+      const existing = existingSubAccounts.find((t) => t.id === ta.id);
       const patched = patchSubAccount(existing, ta);
       if (patched !== existing) {
         subAccountsChanged = true;
@@ -265,6 +266,14 @@ export function patchAccount(
     changed = true;
   }
 
+  if (
+    updatedRaw.creationDate &&
+    updatedRaw.creationDate !== account.creationDate.toISOString()
+  ) {
+    next.creationDate = new Date(updatedRaw.creationDate);
+    changed = true;
+  }
+
   if (account.freshAddress !== updatedRaw.freshAddress) {
     next.freshAddress = updatedRaw.freshAddress;
     changed = true;
@@ -285,6 +294,14 @@ export function patchAccount(
     account.tronResources !== updatedRaw.tronResources
   ) {
     next.tronResources = fromTronResourcesRaw(updatedRaw.tronResources);
+    changed = true;
+  }
+
+  if (
+    updatedRaw.cosmosResources &&
+    account.cosmosResources !== updatedRaw.cosmosResources
+  ) {
+    next.cosmosResources = fromCosmosResourcesRaw(updatedRaw.cosmosResources);
     changed = true;
   }
 
@@ -319,8 +336,8 @@ export function patchSubAccount(
   );
 
   // $FlowFixMe destructing union type?
-  const next: $Exact<SubAccount> = {
-    ...account
+  const next: SubAccount = {
+    ...account,
   };
 
   let changed = false;
@@ -330,6 +347,14 @@ export function patchSubAccount(
     updatedRaw.operationsCount
   ) {
     next.operationsCount = updatedRaw.operationsCount;
+    changed = true;
+  }
+
+  if (
+    updatedRaw.creationDate &&
+    updatedRaw.creationDate !== account.creationDate.toISOString()
+  ) {
+    next.creationDate = new Date(updatedRaw.creationDate);
     changed = true;
   }
 
@@ -362,6 +387,6 @@ export function patchOperations(
   return minimalOperationsBuilderSync(
     operations,
     updated.slice(0).reverse(),
-    raw => fromOperationRaw(raw, accountId, subAccounts)
+    (raw) => fromOperationRaw(raw, accountId, subAccounts)
   );
 }

@@ -9,16 +9,17 @@ import byFamily from "../generated/libcore-getFeesForTransaction";
 
 export type Input = {
   account: Account,
-  transaction: Transaction
+  transaction: Transaction,
 };
 
-type F = Input => Promise<{
+type F = (Input) => Promise<{
   estimatedFees: BigNumber,
-  value: BigNumber
+  estimatedGas: ?BigNumber, // Note: Use in Cosmos
+  value: BigNumber,
 }>;
 
 export const getFeesForTransaction: F = withLibcoreF(
-  core => async ({ account, transaction }) => {
+  (core) => async ({ account, transaction }) => {
     try {
       const { currency } = account;
       const { coreWallet, coreAccount } = await getCoreAccount(core, account);
@@ -34,7 +35,7 @@ export const getFeesForTransaction: F = withLibcoreF(
         coreCurrency,
         transaction,
         isPartial: true,
-        isCancelled: () => false
+        isCancelled: () => false,
       });
       return fees;
     } catch (error) {

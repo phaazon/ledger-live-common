@@ -6,19 +6,20 @@ import {
   FeeNotLoaded,
   FeeRequired,
   FeeTooHigh,
-  GasLessThanEstimate
+  GasLessThanEstimate,
 } from "@ledgerhq/errors";
-import type { Account, AccountLike } from "../../../types";
+import type { AccountLike } from "../../../types";
 import type { AccountBridge, CurrencyBridge } from "../../../types/bridge";
 import { scanAccounts } from "../../../libcore/scanAccounts";
 import { getMainAccount } from "../../../account";
 import { getAccountNetworkInfo } from "../../../libcore/getAccountNetworkInfo";
-import { withLibcore } from "../../../libcore/access";
-import { getGasLimit } from "../transaction";
-import { getCoreAccount } from "../../../libcore/getCoreAccount";
+import {
+  getGasLimit,
+  inferEthereumGasLimitRequest,
+  estimateGasLimit,
+} from "../transaction";
 import { sync } from "../../../libcore/syncAccount";
 import { getFeesForTransaction } from "../../../libcore/getFeesForTransaction";
-import { libcoreBigIntToBigNumber } from "../../../libcore/buildBigNumber";
 import { makeLRUCache } from "../../../cache";
 import { validateRecipient } from "../../../bridge/shared";
 import type { Transaction } from "../types";
@@ -28,11 +29,11 @@ import broadcast from "../libcore-broadcast";
 const getTransactionAccount = (a, t): AccountLike => {
   const { subAccountId } = t;
   return subAccountId
-    ? (a.subAccounts || []).find(ta => ta.id === subAccountId) || a
+    ? (a.subAccounts || []).find((ta) => ta.id === subAccountId) || a
     : a;
 };
 
-const createTransaction = a => ({
+const createTransaction = (a) => ({
   family: "ethereum",
   amount: BigNumber(0),
   recipient: "",
@@ -41,7 +42,7 @@ const createTransaction = a => ({
   estimatedGasLimit: null,
   networkInfo: null,
   feeCustomUnit: a.currency.units[1] || a.currency.units[0],
-  useAllAmount: false
+  useAllAmount: false,
 });
 
 const updateTransaction = (t, patch) => {
@@ -55,7 +56,7 @@ const calculateFees = makeLRUCache(
   async (a, t) => {
     return getFeesForTransaction({
       account: a,
-      transaction: t
+      transaction: t,
     });
   },
   (a, t) =>
@@ -69,7 +70,7 @@ const getTransactionStatus = async (a, t) => {
   const warnings = {};
   const tokenAccount = !t.subAccountId
     ? null
-    : a.subAccounts && a.subAccounts.find(ta => ta.id === t.subAccountId);
+    : a.subAccounts && a.subAccounts.find((ta) => ta.id === t.subAccountId);
   const account = tokenAccount || a;
 
   const useAllAmount = !!t.useAllAmount;
@@ -96,10 +97,10 @@ const getTransactionStatus = async (a, t) => {
     errors.gasLimit = new FeeRequired();
   } else if (!errors.recipient) {
     await calculateFees(a, t).then(
-      res => {
+      (res) => {
         estimatedFees = res.estimatedFees;
       },
-      error => {
+      (error) => {
         if (error.name === "NotEnoughBalance") {
           errors.amount = error;
         } else if (error.name === "NotEnoughGas") {
@@ -140,7 +141,7 @@ const getTransactionStatus = async (a, t) => {
     warnings,
     estimatedFees,
     amount,
-    totalSpent
+    totalSpent,
   });
 };
 
@@ -168,34 +169,35 @@ const prepareTransaction = async (a, t: Transaction): Promise<Transaction> => {
     networkInfo = ni;
   }
 
-  let estimatedGasLimit;
+  const gasPrice = t.gasPrice || networkInfo.gasPrice;
+
+  if (t.gasPrice !== gasPrice || t.networkInfo !== networkInfo) {
+    t = { ...t, networkInfo, gasPrice };
+  }
+
+  let estimatedGasLimit = BigNumber(21000); // fallback in case we can't calculate
   if (tAccount.type === "TokenAccount") {
-    estimatedGasLimit = await estimateGasLimitForERC20(
+    estimatedGasLimit = await estimateGasLimit(
       a,
-      tAccount.token.contractAddress
+      tAccount.token.contractAddress,
+      inferEthereumGasLimitRequest(a, t)
     );
   } else if (t.recipient) {
     const { recipientError } = await validateRecipient(a.currency, t.recipient);
     if (!recipientError) {
-      estimatedGasLimit = await estimateGasLimitForERC20(a, t.recipient);
+      estimatedGasLimit = await estimateGasLimit(
+        a,
+        t.recipient,
+        inferEthereumGasLimitRequest(a, t)
+      );
     }
   }
-  if (
-    estimatedGasLimit &&
-    t.estimatedGasLimit &&
-    t.estimatedGasLimit.eq(estimatedGasLimit)
-  ) {
-    estimatedGasLimit = t.estimatedGasLimit;
-  }
-
-  const gasPrice = t.gasPrice || networkInfo.gasPrice;
 
   if (
-    t.gasPrice !== gasPrice ||
-    t.estimatedGasLimit !== estimatedGasLimit ||
-    t.networkInfo !== networkInfo
+    !t.estimatedGasLimit ||
+    (estimatedGasLimit && !estimatedGasLimit.eq(t.estimatedGasLimit))
   ) {
-    return { ...t, networkInfo, estimatedGasLimit, gasPrice };
+    t.estimatedGasLimit = estimatedGasLimit;
   }
 
   return t;
@@ -204,7 +206,7 @@ const prepareTransaction = async (a, t: Transaction): Promise<Transaction> => {
 const estimateMaxSpendable = async ({
   account,
   parentAccount,
-  transaction
+  transaction,
 }) => {
   const mainAccount = getMainAccount(account, parentAccount);
   const t = await prepareTransaction(mainAccount, {
@@ -212,7 +214,7 @@ const estimateMaxSpendable = async ({
     subAccountId: account.type === "Account" ? null : account.id,
     recipient: "0x0000000000000000000000000000000000000000",
     ...transaction,
-    useAllAmount: true
+    useAllAmount: true,
   });
   const s = await getTransactionStatus(mainAccount, t);
   return s.amount;
@@ -226,13 +228,13 @@ const accountBridge: AccountBridge<Transaction> = {
   estimateMaxSpendable,
   sync,
   signOperation,
-  broadcast
+  broadcast,
 };
 
 const currencyBridge: CurrencyBridge = {
   preload: () => Promise.resolve(),
   hydrate: () => {},
-  scanAccounts
+  scanAccounts,
 };
 
 export default { currencyBridge, accountBridge };

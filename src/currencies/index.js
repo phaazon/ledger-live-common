@@ -10,7 +10,7 @@ import {
   getMarketcapTickers,
   useMarketcapTickers,
   currenciesByMarketcap,
-  useCurrenciesByMarketcap
+  useCurrenciesByMarketcap,
 } from "./sortByMarketcap";
 
 import {
@@ -20,7 +20,7 @@ import {
   hasFiatCurrencyTicker,
   isFiatSupported,
   listSupportedFiats,
-  setSupportedFiats
+  setSupportedFiats,
 } from "../data/fiat";
 
 import {
@@ -30,10 +30,11 @@ import {
   findCryptoCurrency,
   findCryptoCurrencyById,
   findCryptoCurrencyByScheme,
+  findCryptoCurrencyByKeyword,
   findCryptoCurrencyByTicker,
   isCurrencySupported,
   setSupportedCurrencies,
-  listSupportedCurrencies
+  listSupportedCurrencies,
 } from "../data/cryptocurrencies";
 
 import {
@@ -44,7 +45,7 @@ import {
   findTokenById,
   findTokenByAddress,
   hasTokenId,
-  getTokenById
+  getTokenById,
 } from "../data/tokens";
 
 import { parseCurrencyUnit } from "./parseCurrencyUnit";
@@ -53,7 +54,7 @@ import { chopCurrencyUnitDecimals } from "./chopCurrencyUnitDecimals";
 
 import {
   formatCurrencyUnit,
-  formatCurrencyUnitFragment
+  formatCurrencyUnitFragment,
 } from "./formatCurrencyUnit";
 
 import { formatShort } from "./formatShort";
@@ -87,6 +88,7 @@ export {
   findCryptoCurrencyById,
   findCryptoCurrencyByTicker,
   findCryptoCurrencyByScheme,
+  findCryptoCurrencyByKeyword,
   findFiatCurrencyByTicker,
   hasFiatCurrencyTicker,
   listTokens,
@@ -108,5 +110,5 @@ export {
   decodeURIScheme,
   valueFromUnit,
   sanitizeValueString,
-  getCurrencyColor
+  getCurrencyColor,
 };

@@ -2,11 +2,12 @@
 import bs58check from "bs58check";
 import { BigNumber } from "bignumber.js";
 import get from "lodash/get";
+import { log } from "@ledgerhq/logs";
 import type {
   Transaction,
   TronOperationMode,
   TrongridTxInfo,
-  TrongridExtraTxInfo
+  TrongridExtraTxInfo,
 } from "./types";
 import type { Account, Operation, OperationType } from "../../types";
 
@@ -36,7 +37,7 @@ const parentTx = [
   "UnfreezeBalanceContract",
   "VoteWitnessContract",
   "WithdrawBalanceContract",
-  "ExchangeTransactionContract"
+  "ExchangeTransactionContract",
 ];
 
 export const isParentTx = (tx: TrongridTxInfo): boolean =>
@@ -51,7 +52,7 @@ export const getEstimatedBlockSize = (
     case "send": {
       const subAccount =
         t.subAccountId && a.subAccounts
-          ? a.subAccounts.find(sa => sa.id === t.subAccountId)
+          ? a.subAccounts.find((sa) => sa.id === t.subAccountId)
           : null;
       if (subAccount && subAccount.type === "TokenAccount") {
         if (subAccount.token.tokenType === "trc10") return BigNumber(285);
@@ -113,11 +114,8 @@ const getOperationType = (
   }
 };
 
-export const formatTrongridTxResponse = (
-  tx: Object,
-  isTrc20InTx: boolean = false
-): TrongridTxInfo => {
-  if (isTrc20InTx) {
+export const formatTrongridTrc20TxResponse = (tx: Object): ?TrongridTxInfo => {
+  try {
     const {
       from,
       to,
@@ -125,7 +123,7 @@ export const formatTrongridTxResponse = (
       detail,
       value,
       transaction_id,
-      token_info
+      token_info,
     } = tx;
     const type = "TriggerSmartContract";
     const txID = transaction_id;
@@ -145,9 +143,16 @@ export const formatTrongridTxResponse = (
       blockHeight,
       value: formattedValue,
       fee,
-      hasFailed: false // trc20 'IN' txs are succeeded if returned by trongrid,
+      hasFailed: false, // trc20 txs are succeeded if returned by trongrid,
     };
-  } else {
+  } catch (e) {
+    log("tron-error", "could not parse transaction", tx);
+    return undefined;
+  }
+};
+
+export const formatTrongridTxResponse = (tx: Object): ?TrongridTxInfo => {
+  try {
     const { txID, block_timestamp, detail } = tx;
 
     const date = new Date(block_timestamp);
@@ -163,10 +168,10 @@ export const formatTrongridTxResponse = (
       contract_address,
       quant,
       frozen_balance,
-      votes
+      votes,
     } = get(tx, "raw_data.contract[0].parameter.value", {});
 
-    const hasFailed = get(tx, "ret[0].contractRet", "") !== "SUCCESS";
+    const hasFailed = get(tx, "ret[0].contractRet", "SUCCESS") !== "SUCCESS";
 
     const tokenId =
       type === "TransferAssetContract"
@@ -209,7 +214,7 @@ export const formatTrongridTxResponse = (
       fee,
       resource,
       blockHeight,
-      hasFailed
+      hasFailed,
     };
 
     const getExtra = (): ?TrongridExtraTxInfo => {
@@ -217,19 +222,19 @@ export const formatTrongridTxResponse = (
         case "FreezeBalanceContract":
           return {
             frozenAmount: BigNumber(frozen_balance),
-            resource
+            resource,
           };
         case "UnfreezeBalanceContract":
           return {
             unfreezeAmount: BigNumber(detail.unfreeze_amount),
-            resource
+            resource,
           };
         case "VoteWitnessContract":
           return {
-            votes: votes.map(v => ({
+            votes: votes.map((v) => ({
               address: encode58Check(v.vote_address),
-              voteCount: v.vote_count
-            }))
+              voteCount: v.vote_count,
+            })),
           };
         default:
           return undefined;
@@ -243,6 +248,9 @@ export const formatTrongridTxResponse = (
     }
 
     return txInfo;
+  } catch (e) {
+    log("tron-error", "could not parse transaction", tx);
+    return undefined;
   }
 };
 
@@ -261,7 +269,7 @@ export const txInfoToOperation = (
     fee = BigNumber(0),
     blockHeight,
     extra = {},
-    hasFailed
+    hasFailed,
   } = tx;
   const hash = txID;
 
@@ -284,7 +292,7 @@ export const txInfoToOperation = (
       recipients: to ? [to] : [],
       date,
       extra,
-      hasFailed
+      hasFailed,
     };
   }
 

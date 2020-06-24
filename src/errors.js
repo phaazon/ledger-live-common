@@ -4,6 +4,14 @@ import { createCustomErrorClass } from "@ledgerhq/errors";
 // TODO we need to migrate in all errors that are in @ledgerhq/errors
 // but only make sense to live-common to not pollute ledgerjs
 
+export const FeeEstimationFailed = createCustomErrorClass(
+  "FeeEstimationFailed"
+);
+
+export const LowerThanMinimumRelayFee = createCustomErrorClass(
+  "LowerThanMinimumRelayFee"
+);
+
 export const TransactionRefusedOnDevice = createCustomErrorClass(
   "TransactionRefusedOnDevice"
 );
@@ -61,4 +69,51 @@ export const StellarWrongMemoFormat = createCustomErrorClass(
   "StellarWrongMemoFormat"
 );
 
+export const AccountAwaitingSendPendingOperations = createCustomErrorClass(
+  "AccountAwaitingSendPendingOperations"
+);
+
 export const SourceHasMultiSign = createCustomErrorClass("SourceHasMultiSign");
+
+export const CosmosRedelegationInProgress = createCustomErrorClass(
+  "CosmosRedelegationInProgress"
+);
+
+export const CosmosClaimRewardsFeesWarning = createCustomErrorClass(
+  "CosmosClaimRewardsFeesWarning"
+);
+
+export const CosmosDelegateAllFundsWarning = createCustomErrorClass(
+  "CosmosDelegateAllFundsWarning"
+);
+
+export const CosmosTooManyValidators = createCustomErrorClass(
+  "CosmosTooManyValidators"
+);
+
+export const NotEnoughDelegationBalance = createCustomErrorClass(
+  "NotEnoughDelegationBalance"
+);
+
+// Note : info of this code can be found here :
+// https://github.com/cosmos/cosmos-sdk/blob/v0.37.9/types/errors.go#L28
+export const CosmosBroadcastError = {
+  "0": createCustomErrorClass("CosmosBroadcastCodeOK"),
+  "1": createCustomErrorClass("CosmosBroadcastCodeInternal"),
+  "2": createCustomErrorClass("CosmosBroadcastCodeTxDecode"),
+  "3": createCustomErrorClass("CosmosBroadcastCodeInvalidSequence"),
+  "4": createCustomErrorClass("CosmosBroadcastCodeUnauthorized"),
+  "5": createCustomErrorClass("CosmosBroadcastCodeInsufficientFunds"),
+  "6": createCustomErrorClass("CosmosBroadcastCodeUnknownRequest"),
+  "7": createCustomErrorClass("CosmosBroadcastCodeInvalidAddress"),
+  "8": createCustomErrorClass("CosmosBroadcastCodeInvalidPubKey"),
+  "9": createCustomErrorClass("CosmosBroadcastCodeUnknownAddress"),
+  "10": createCustomErrorClass(" CosmosBroadcastCodeInsufficientCoins"),
+  "11": createCustomErrorClass(" CosmosBroadcastCodeInvalidCoins"),
+  "12": createCustomErrorClass(" CosmosBroadcastCodeOutOfGas"),
+  "13": createCustomErrorClass(" CosmosBroadcastCodeMemoTooLarge"),
+  "14": createCustomErrorClass(" CosmosBroadcastCodeInsufficientFee"),
+  "15": createCustomErrorClass(" CosmosBroadcastCodeTooManySignatures"),
+  "16": createCustomErrorClass(" CosmosBroadcastCodeGasOverflow"),
+  "17": createCustomErrorClass(" CosmosBroadcastCodeNoSignatures"),
+};

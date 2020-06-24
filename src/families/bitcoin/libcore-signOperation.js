@@ -8,7 +8,7 @@ import type {
   CoreBitcoinLikeTransaction,
   CoreBitcoinLikeInput,
   CoreBitcoinLikeOutput,
-  Transaction
+  Transaction,
 } from "./types";
 import type { Operation } from "../../types";
 import { promiseAllBatched } from "../../promise";
@@ -27,7 +27,7 @@ async function signTransaction({
   derivationMode,
   onDeviceStreaming,
   onDeviceSignatureRequested,
-  onDeviceSignatureGranted
+  onDeviceSignatureGranted,
 }) {
   log("hw", `signTransaction ${currency.id} for account ${account.id}`);
 
@@ -45,23 +45,18 @@ async function signTransaction({
   if (isCancelled()) return;
 
   const hwApp = new Btc(transport);
-  const additionals = [];
+  const additionals = [currency.id];
+
   let expiryHeight;
-  if (currency.id === "bitcoin_cash" || currency.id === "bitcoin_gold")
+  if (currency.id === "bitcoin_cash" || currency.id === "bitcoin_gold") {
     additionals.push("bip143");
-  if (currency.id === "zcash" || currency.id === "komodo") {
+  } else if (currency.id === "zcash" || currency.id === "komodo") {
     expiryHeight = Buffer.from([0x00, 0x00, 0x00, 0x00]);
-    if (account.blockHeight >= 419200) {
-      additionals.push("sapling");
-    }
+    additionals.push("sapling"); // FIXME drop in ledgerjs. we always use sapling now for zcash & kmd
   } else if (currency.id === "decred") {
     expiryHeight = Buffer.from([0x00, 0x00, 0x00, 0x00]);
-    additionals.push("decred");
-  } else if (currency.id === "stealthcoin") {
-    additionals.push("stealthcoin");
-  } else if (currency.id === "zencash") {
-    additionals.push("zencash");
   }
+
   if (account.derivationMode === "native_segwit") {
     additionals.push("bech32");
   }
@@ -69,7 +64,7 @@ async function signTransaction({
   const rawInputs: CoreBitcoinLikeInput[] = await coreTransaction.getInputs();
   if (isCancelled()) return;
 
-  const hasExtraData =
+  const hasExtraData = // FIXME investigate why we need this here and drop
     currency.id === "zcash" ||
     currency.id === "komodo" ||
     currency.id === "zencash";
@@ -88,7 +83,7 @@ async function signTransaction({
       supportsSegwit: currency.supportsSegwit,
       inputHasTimestamp,
       hasExtraData,
-      additionals
+      additionals,
     });
     const previousTransaction = hwApp.splitTransaction(
       hexPreviousTransaction,
@@ -105,13 +100,13 @@ async function signTransaction({
     log("libcore", "inputs[" + i + "]", {
       previousTransaction: JSON.stringify(previousTransaction),
       outputIndex,
-      sequence
+      sequence,
     });
     return [
       previousTransaction,
       outputIndex,
       undefined, // we don't use that TODO: document
-      sequence // 0xffffffff,
+      sequence, // 0xffffffff,
     ];
   });
   if (isCancelled()) return;
@@ -119,7 +114,7 @@ async function signTransaction({
   const associatedKeysets = await promiseAllBatched(
     5,
     rawInputs,
-    async input => {
+    async (input) => {
       const derivationPaths = await input.getDerivationPath();
       const [first] = derivationPaths;
       if (!first) throw new Error("unexpected empty derivationPaths");
@@ -184,7 +179,7 @@ async function signTransaction({
     isSegwit: isSegwitDerivationMode(derivationMode),
     timestamp: initialTimestamp || undefined,
     additionals,
-    expiryHeight: expiryHeight && expiryHeight.toString("hex")
+    expiryHeight: expiryHeight && expiryHeight.toString("hex"),
   });
 
   const signature = await hwApp.createPaymentTransactionNew({
@@ -201,19 +196,19 @@ async function signTransaction({
     expiryHeight,
     onDeviceSignatureGranted,
     onDeviceSignatureRequested,
-    onDeviceStreaming
+    onDeviceStreaming,
   });
 
   const sendersInput = await coreTransaction.getInputs();
   const senders = (
-    await promiseAllBatched(5, sendersInput, senderInput =>
+    await promiseAllBatched(5, sendersInput, (senderInput) =>
       senderInput.getAddress()
     )
   ).filter(Boolean);
 
   const recipientsOutput = await coreTransaction.getOutputs();
   const recipients = (
-    await promiseAllBatched(5, recipientsOutput, recipientOutput =>
+    await promiseAllBatched(5, recipientsOutput, (recipientOutput) =>
       recipientOutput.getAddress()
     )
   ).filter(Boolean);
@@ -238,17 +233,17 @@ async function signTransaction({
     recipients,
     accountId: account.id,
     date: new Date(),
-    extra: {}
+    extra: {},
   };
 
   return {
     operation,
     expirationDate: null,
-    signature
+    signature,
   };
 }
 
 export default makeSignOperation<Transaction, CoreBitcoinLikeTransaction>({
   buildTransaction,
-  signTransaction
+  signTransaction,
 });

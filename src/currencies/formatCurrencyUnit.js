@@ -25,7 +25,7 @@ const defaultFormatOptions = {
   // NB even if you set 3, USD 4.50 will be display as USD 4.50 , not 4.5000 (extra zeros are not displayed)
   subMagnitude: 0,
   // discrete mode will hide amounts
-  discreet: false
+  discreet: false,
 };
 
 type FormatFragment =
@@ -59,13 +59,14 @@ export function formatCurrencyUnitFragment(
     disableRounding,
     useGrouping,
     subMagnitude,
-    discreet
-  } = {
-    ...defaultFormatOptions,
+    discreet,
+  } =
     // $FlowFixMe
-    ...unit,
-    ...options
-  };
+    {
+      ...defaultFormatOptions,
+      ...unit,
+      ...options,
+    };
   const { magnitude, code } = unit;
   const floatValue = value.div(BigNumber(10).pow(magnitude));
   const floatValueAbs = floatValue.abs();
@@ -98,15 +99,15 @@ export function formatCurrencyUnitFragment(
       : toLocaleString(floatValueAbs, locale, {
           maximumFractionDigits,
           minimumFractionDigits,
-          useGrouping
+          useGrouping,
         }),
-    separator: nonBreakableSpace
+    separator: nonBreakableSpace,
   };
 
   const frags = [];
   let nonSepIndex = -1;
   let sepConsumed = true;
-  getFragPositions(locale).forEach(kind => {
+  getFragPositions(locale).forEach((kind) => {
     const v = fragValueByKind[kind];
     if (!v) return;
     const isSep = kind === "separator";
@@ -127,6 +128,6 @@ export function formatCurrencyUnit(
   options?: $Shape<typeof defaultFormatOptions>
 ): string {
   return formatCurrencyUnitFragment(unit, value, options)
-    .map(f => f.value)
+    .map((f) => f.value)
     .join("");
 }

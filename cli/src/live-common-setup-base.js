@@ -12,9 +12,9 @@ import { setSupportedCurrencies } from "@ledgerhq/live-common/lib/data/cryptocur
 
 implementCountervalues({
   getAPIBaseURL: () => window.LEDGER_CV_API,
-  storeSelector: state => state.countervalues,
+  storeSelector: (state) => state.countervalues,
   pairsSelector: () => [],
-  setExchangePairsAction: () => {}
+  setExchangePairsAction: () => {},
 });
 
 setSupportedCurrencies([
@@ -32,7 +32,6 @@ setSupportedCurrencies([
   "stratis",
   "dogecoin",
   "digibyte",
-  "hcash",
   "komodo",
   "pivx",
   "zencash",
@@ -41,13 +40,12 @@ setSupportedCurrencies([
   "viacoin",
   "stakenet",
   "stealthcoin",
-  "poswallet",
-  "clubcoin",
   "decred",
   "bitcoin_testnet",
   "ethereum_ropsten",
   "tron",
-  "stellar"
+  "stellar",
+  "cosmos",
 ]);
 
 for (const k in process.env) setEnvUnsafe(k, process.env[k]);
@@ -56,41 +54,83 @@ const { VERBOSE, VERBOSE_FILE } = process.env;
 
 const logger = winston.createLogger({
   level: "debug",
-  transports: []
+  transports: [],
 });
 
 const { format } = winston;
-const { combine, timestamp, json } = format;
+const { combine, json } = format;
+const winstonFormatJSON = json();
+const winstonFormatConsole = combine(
+  // eslint-disable-next-line no-unused-vars
+  format(({ type, id, date, ...rest }) => rest)(),
+  format.colorize(),
+  format.simple()
+);
 
-const winstonFormat = combine(timestamp(), json());
+const levels = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  http: 3,
+  verbose: 4,
+  debug: 5,
+  silly: 6,
+};
+
+const level = VERBOSE && VERBOSE in levels ? VERBOSE : "debug";
 
 if (VERBOSE_FILE) {
   logger.add(
     new winston.transports.File({
-      format: winstonFormat,
+      format: winstonFormatJSON,
       filename: VERBOSE_FILE,
-      level: "debug"
+      level,
     })
   );
 }
 
-logger.add(
-  new winston.transports.Console({
-    format: winstonFormat,
-    silent: !VERBOSE
-  })
-);
+if (VERBOSE && VERBOSE !== "json") {
+  logger.add(
+    new winston.transports.Console({
+      format: winstonFormatConsole,
+      colorize: true,
+      level,
+    })
+  );
+} else {
+  logger.add(
+    new winston.transports.Console({
+      format: winstonFormatJSON,
+      silent: !VERBOSE,
+      level,
+    })
+  );
+}
 
-// eslint-disable-next-line no-unused-vars
-listen(({ id, date, type, message, ...rest }) => {
-  logger.log("debug", {
-    message: type + (message ? ": " + message : ""),
-    // $FlowFixMe
-    ...rest
-  });
+listen((log) => {
+  const { type } = log;
+  let level = "info";
+  if (type === "libcore-call" || type === "libcore-result") {
+    level = "silly";
+  } else if (
+    type === "apdu" ||
+    type === "hw" ||
+    type === "speculos" ||
+    type.includes("debug") ||
+    type.startsWith("libcore")
+  ) {
+    level = "debug";
+  } else if (type.includes("warn")) {
+    level = "warn";
+  } else if (type.startsWith("network") || type.startsWith("socket")) {
+    level = "http";
+  } else if (type.includes("error")) {
+    level = "error";
+  }
+  logger.log(level, log);
 });
 
 implementLibcore({
   lib: () => require("@ledgerhq/ledger-core"), // eslint-disable-line global-require
-  dbPath: process.env.LIBCORE_DB_PATH || "./dbdata"
+  dbPath: process.env.LIBCORE_DB_PATH || "./dbdata",
 });

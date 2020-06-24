@@ -7,7 +7,7 @@ import invariant from "invariant";
 async function broadcast({
   core,
   coreAccount,
-  signedOperation: { signature, operation }
+  signedOperation: { signature, operation },
 }) {
   const bitcoinLikeAccount = await new core.Bitcoin().fromCoreAccount(
     coreAccount

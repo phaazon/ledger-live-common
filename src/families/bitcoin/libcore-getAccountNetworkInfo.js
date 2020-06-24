@@ -10,7 +10,7 @@ import invariant from "invariant";
 type Input = {
   core: Core,
   coreAccount: CoreAccount,
-  account: Account
+  account: Account,
 };
 
 type Output = Promise<NetworkInfo>;
@@ -28,21 +28,21 @@ async function bitcoin({ core, coreAccount }: Input): Output {
     bigInts,
     libcoreBigIntToBigNumber
   );
-  const normalized = bigNumbers.map(bn =>
+  const normalized = bigNumbers.map((bn) =>
     bn.div(1000).integerValue(BigNumber.ROUND_CEIL)
   );
   const feeItems = {
     items: normalized.map((feePerByte, i) => ({
       key: String(i),
       speed: speeds[i],
-      feePerByte
+      feePerByte,
     })),
     defaultFeePerByte:
-      normalized[Math.floor(normalized.length / 2)] || BigNumber(0)
+      normalized[Math.floor(normalized.length / 2)] || BigNumber(0),
   };
   return {
     family: "bitcoin",
-    feeItems
+    feeItems,
   };
 }
 

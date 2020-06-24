@@ -8,7 +8,7 @@ import type {
   SpecificStatics,
   CoreAccountSpecifics,
   CoreOperationSpecifics,
-  CoreCurrencySpecifics
+  CoreCurrencySpecifics,
 } from "../../generated/types";
 
 // This is an exception because Stellar is the only one who need a specific methods
@@ -70,7 +70,7 @@ export const TimePeriod = {
   HOUR: 0,
   DAY: 1,
   WEEK: 2,
-  MONTH: 3
+  MONTH: 3,
 };
 
 declare type CoreAccount = {
@@ -84,7 +84,7 @@ declare type CoreAccount = {
   getFreshPublicAddresses(): Promise<CoreAddress[]>,
   getRestoreKey(): Promise<string>,
   synchronize(): Promise<CoreEventBus>,
-  queryOperations(): Promise<CoreOperationQuery>
+  queryOperations(): Promise<CoreOperationQuery>,
 } & CoreAccountSpecifics;
 
 declare type CoreOperation = {
@@ -94,7 +94,7 @@ declare type CoreOperation = {
   getFees(): Promise<?CoreAmount>,
   getBlockHeight(): Promise<?number>,
   getRecipients(): Promise<string[]>,
-  getSenders(): Promise<string[]>
+  getSenders(): Promise<string[]>,
 } & CoreOperationSpecifics;
 
 declare type CoreCurrency = {} & CoreCurrencySpecifics;
@@ -202,6 +202,7 @@ declare class CoreExtendedKeyAccountCreationInfo {
 declare class CoreDynamicObject {
   static newInstance(): Promise<CoreDynamicObject>;
   static flush(): Promise<void>;
+  putBoolean(string, boolean): Promise<void>;
   putString(string, string): Promise<void>;
   putInt(string, number): Promise<void>;
 }
@@ -295,17 +296,17 @@ type SpecMapF = {
   njsField?: string,
   njsInstanciateClass?: Array<Object>,
   njsBuggyMethodIsNotStatic?: boolean | Function,
-  nodejsNotAvailable?: boolean
+  nodejsNotAvailable?: boolean,
 };
 
 export type Spec = {
   njsUsesPlainObject?: boolean,
   statics?: {
-    [_: string]: SpecMapF
+    [_: string]: SpecMapF,
   },
   methods?: {
-    [_: string]: SpecMapF
-  }
+    [_: string]: SpecMapF,
+  },
 };
 
 // To make the above contract possible with current libcore bindings,
@@ -319,16 +320,16 @@ export const reflect = (declare: (string, Spec) => void) => {
     (all, extra) => ({
       AccountMethods: {
         ...all.AccountMethods,
-        ...(extra && extra.AccountMethods)
+        ...(extra && extra.AccountMethods),
       },
       OperationMethods: {
         ...all.OperationMethods,
-        ...(extra && extra.OperationMethods)
+        ...(extra && extra.OperationMethods),
       },
       WalletMethods: {
         ...all.WalletMethods,
-        ...(extra && extra.WalletMethods && extra.WalletMethods)
-      }
+        ...(extra && extra.WalletMethods && extra.WalletMethods),
+      },
     }),
     {}
   );
@@ -346,7 +347,7 @@ export const reflect = (declare: (string, Spec) => void) => {
           "ThreadDispatcher",
           "RandomNumberGenerator",
           "DatabaseBackend",
-          "DynamicObject"
+          "DynamicObject",
         ],
         returns: "Services"
       }
@@ -367,73 +368,73 @@ export const reflect = (declare: (string, Spec) => void) => {
     },
     methods: {
       updateWalletConfig: {
-        params: [null, "DynamicObject"]
+        params: [null, "DynamicObject"],
       },
       getWallet: {
-        returns: "Wallet"
+        returns: "Wallet",
       },
       getCurrency: {
-        returns: "Currency"
+        returns: "Currency",
       },
       createWallet: {
         params: [null, "Currency", "DynamicObject"],
-        returns: "Wallet"
-      }
-    }
+        returns: "Wallet",
+      },
+    },
   });
 
   declare("Wallet", {
     methods: {
       ...WalletMethods,
       getAccountCreationInfo: {
-        returns: "AccountCreationInfo"
+        returns: "AccountCreationInfo",
       },
       getNextAccountCreationInfo: {
-        returns: "AccountCreationInfo"
+        returns: "AccountCreationInfo",
       },
       newAccountWithInfo: {
         params: ["AccountCreationInfo"],
-        returns: "Account"
+        returns: "Account",
       },
       getCurrency: {
-        returns: "Currency"
+        returns: "Currency",
       },
       getAccount: {
-        returns: "Account"
+        returns: "Account",
       },
       getExtendedKeyAccountCreationInfo: {
-        returns: "ExtendedKeyAccountCreationInfo"
+        returns: "ExtendedKeyAccountCreationInfo",
       },
       newAccountWithExtendedKeyInfo: {
         params: ["ExtendedKeyAccountCreationInfo"],
-        returns: "Account"
-      }
-    }
+        returns: "Account",
+      },
+    },
   });
 
   declare("Account", {
     methods: {
       ...AccountMethods,
       getBalance: {
-        returns: "Amount"
+        returns: "Amount",
       },
       getBalanceHistory: {
-        returns: ["Amount"]
+        returns: ["Amount"],
       },
       getLastBlock: {
-        returns: "Block"
+        returns: "Block",
       },
       getFreshPublicAddresses: {
-        returns: ["Address"]
+        returns: ["Address"],
       },
       getRestoreKey: {},
       synchronize: {
-        returns: "EventBus"
+        returns: "EventBus",
       },
       queryOperations: {
-        returns: "OperationQuery"
-      }
-    }
+        returns: "OperationQuery",
+      },
+    },
   });
 
   declare("Operation", {
@@ -445,8 +446,8 @@ export const reflect = (declare: (string, Spec) => void) => {
       getFees: { returns: "Amount" },
       getBlockHeight: {},
       getRecipients: {},
-      getSenders: {}
-    }
+      getSenders: {},
+    },
   });
 
   declare("Currency", {
@@ -454,21 +455,21 @@ export const reflect = (declare: (string, Spec) => void) => {
     methods: {
       getBitcoinLikeNetworkParameters: {
         returns: "BitcoinLikeNetworkParameters",
-        njsField: "bitcoinLikeNetworkParameters"
-      }
-    }
+        njsField: "bitcoinLikeNetworkParameters",
+      },
+    },
   });
 
   declare("BigInt", {
     statics: {
       fromIntegerString: {
         njsBuggyMethodIsNotStatic: () => ["", 0, "."],
-        returns: "BigInt"
-      }
+        returns: "BigInt",
+      },
     },
     methods: {
-      toString: {}
-    }
+      toString: {},
+    },
   });
 
   declare("Amount", {
@@ -476,43 +477,43 @@ export const reflect = (declare: (string, Spec) => void) => {
       fromHex: {
         params: ["Currency"],
         returns: "Amount",
-        njsBuggyMethodIsNotStatic: true
-      }
+        njsBuggyMethodIsNotStatic: true,
+      },
     },
     methods: {
       toBigInt: {
-        returns: "BigInt"
-      }
-    }
+        returns: "BigInt",
+      },
+    },
   });
 
   declare("Block", {
     njsUsesPlainObject: true,
     methods: {
       getHeight: {
-        njsField: "height"
-      }
-    }
+        njsField: "height",
+      },
+    },
   });
 
   declare("DerivationPath", {
     methods: {
       toString: {},
-      isNull: {}
-    }
+      isNull: {},
+    },
   });
 
   declare("Address", {
     statics: {
       isValid: {
         params: [null, "Currency"],
-        njsBuggyMethodIsNotStatic: true
-      }
+        njsBuggyMethodIsNotStatic: true,
+      },
     },
     methods: {
       toString: {},
-      getDerivationPath: {}
-    }
+      getDerivationPath: {},
+    },
   });
 
   declare("OperationQuery", {
@@ -522,8 +523,8 @@ export const reflect = (declare: (string, Spec) => void) => {
       partial: {},
       complete: {},
       addOrder: {},
-      execute: { returns: ["Operation"] }
-    }
+      execute: { returns: ["Operation"] },
+    },
   });
 
   declare("AccountCreationInfo", {
@@ -538,18 +539,18 @@ export const reflect = (declare: (string, Spec) => void) => {
             owners: 1,
             derivations: 2,
             publicKeys: 3,
-            chainCodes: 4
-          }
-        ]
-      }
+            chainCodes: 4,
+          },
+        ],
+      },
     },
     methods: {
       getDerivations: { njsField: "derivations" },
       getChainCodes: { njsField: "chainCodes", returns: ["hex"] },
       getPublicKeys: { njsField: "publicKeys", returns: ["hex"] },
       getOwners: { njsField: "owners" },
-      getIndex: { njsField: "index" }
-    }
+      getIndex: { njsField: "index" },
+    },
   });
 
   declare("ExtendedKeyAccountCreationInfo", {
@@ -562,17 +563,17 @@ export const reflect = (declare: (string, Spec) => void) => {
             index: 0,
             owners: 1,
             derivations: 2,
-            extendedKeys: 3
-          }
-        ]
-      }
+            extendedKeys: 3,
+          },
+        ],
+      },
     },
     methods: {
       getIndex: { njsField: "index" },
       getExtendedKeys: { njsField: "extendedKeys" },
       getOwners: { njsField: "owners" },
-      getDerivations: { njsField: "derivations" }
-    }
+      getDerivations: { njsField: "derivations" },
+    },
   });
 
   declare("DynamicObject", {
@@ -580,13 +581,14 @@ export const reflect = (declare: (string, Spec) => void) => {
       flush: {},
       newInstance: {
         returns: "DynamicObject",
-        njsInstanciateClass: []
-      }
+        njsInstanciateClass: [],
+      },
     },
     methods: {
+      putBoolean: {},
       putString: {},
-      putInt: {}
-    }
+      putInt: {},
+    },
   });
 
   declare("SerialContext", {});
@@ -594,95 +596,95 @@ export const reflect = (declare: (string, Spec) => void) => {
   declare("ThreadDispatcher", {
     statics: {
       newInstance: {
-        returns: "ThreadDispatcher"
-      }
+        returns: "ThreadDispatcher",
+      },
     },
     methods: {
       getMainExecutionContext: {
         nodejsNotAvailable: true,
-        returns: "SerialContext"
-      }
-    }
+        returns: "SerialContext",
+      },
+    },
   });
 
   declare("EventBus", {
     methods: {
       subscribe: {
-        params: ["SerialContext", "EventReceiver"]
-      }
-    }
+        params: ["SerialContext", "EventReceiver"],
+      },
+    },
   });
 
   declare("EventReceiver", {
     statics: {
       newInstance: {
-        returns: "EventReceiver"
-      }
-    }
+        returns: "EventReceiver",
+      },
+    },
   });
 
   declare("HttpClient", {
     statics: {
       newInstance: {
-        returns: "HttpClient"
+        returns: "HttpClient",
       },
-      flush: {}
-    }
+      flush: {},
+    },
   });
 
   declare("WebSocketClient", {
     statics: {
       newInstance: {
-        returns: "WebSocketClient"
+        returns: "WebSocketClient",
       },
-      flush: {}
-    }
+      flush: {},
+    },
   });
 
   declare("PathResolver", {
     statics: {
       newInstance: {
-        returns: "PathResolver"
+        returns: "PathResolver",
       },
-      flush: {}
-    }
+      flush: {},
+    },
   });
 
   declare("LogPrinter", {
     statics: {
       newInstance: {
-        returns: "LogPrinter"
+        returns: "LogPrinter",
       },
-      flush: {}
-    }
+      flush: {},
+    },
   });
 
   declare("RandomNumberGenerator", {
     statics: {
       newInstance: {
-        returns: "RandomNumberGenerator"
+        returns: "RandomNumberGenerator",
       },
-      flush: {}
-    }
+      flush: {},
+    },
   });
 
   declare("DatabaseBackend", {
     statics: {
       flush: {},
       getSqlite3Backend: {
-        returns: "DatabaseBackend"
-      }
-    }
+        returns: "DatabaseBackend",
+      },
+    },
   });
 
   declare("LedgerCore", {
     statics: {
       getStringVersion: {
-        njsBuggyMethodIsNotStatic: true
+        njsBuggyMethodIsNotStatic: true,
       },
       getIntVersion: {
-        njsBuggyMethodIsNotStatic: true
-      }
-    }
+        njsBuggyMethodIsNotStatic: true,
+      },
+    },
   });
 };

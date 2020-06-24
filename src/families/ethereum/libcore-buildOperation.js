@@ -18,7 +18,7 @@ async function buildInternalOperation(
     blockHeight,
     date,
     status,
-    transactionSequenceNumber
+    transactionSequenceNumber,
   }
 ): Promise<?Operation> {
   const operationType = await tx.getOperationType();
@@ -44,7 +44,7 @@ async function buildInternalOperation(
     date,
     transactionSequenceNumber,
     hash,
-    extra: {}
+    extra: {},
   };
   if (status === 0) {
     out.hasFailed = true;
@@ -92,7 +92,7 @@ async function ethereumBuildOperation(
         blockHeight: partialOp.blockHeight,
         date: partialOp.date,
         status,
-        transactionSequenceNumber
+        transactionSequenceNumber,
       })
   );
   out.internalOperations = ops.filter(Boolean);

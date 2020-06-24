@@ -1,4 +1,5 @@
 // @flow
+import invariant from "invariant";
 import axios from "axios";
 import { log } from "@ledgerhq/logs";
 import { NetworkDown, LedgerAPI5xx, LedgerAPI4xx } from "@ledgerhq/errors";
@@ -9,7 +10,7 @@ const makeError = (msg, status, url, method) => {
   const obj = {
     status,
     url,
-    method
+    method,
   };
   return (status || "").toString().startsWith("4")
     ? new LedgerAPI4xx(msg, obj)
@@ -45,7 +46,7 @@ const extractErrorMessage = (raw: string): ?string => {
 };
 
 const userFriendlyError = <A>(p: Promise<A>, meta): Promise<A> =>
-  p.catch(error => {
+  p.catch((error) => {
     const { url, method, startTime } = meta;
     let errorToThrow;
     if (error.response) {
@@ -80,6 +81,7 @@ const userFriendlyError = <A>(p: Promise<A>, meta): Promise<A> =>
   });
 
 const implementation = (arg: Object): Promise<*> => {
+  invariant(typeof arg === "object", "network takes an object as parameter");
   let promise;
   if (arg.method === "GET") {
     if (!("timeout" in arg)) {
@@ -87,7 +89,7 @@ const implementation = (arg: Object): Promise<*> => {
     }
     // $FlowFixMe
     promise = retry(() => axios(arg), {
-      maxRetry: getEnv("GET_CALLS_RETRY")
+      maxRetry: getEnv("GET_CALLS_RETRY"),
     });
   } else {
     // $FlowFixMe
@@ -97,13 +99,13 @@ const implementation = (arg: Object): Promise<*> => {
     url: arg.url,
     method: arg.method,
     data: arg.data,
-    startTime: Date.now()
+    startTime: Date.now(),
   };
 
   log("network", `${meta.method} ${meta.url}`, { data: arg.data });
 
   return userFriendlyError(
-    promise.then(response => {
+    promise.then((response) => {
       log(
         "network-success",
         `${response.status} ${meta.method} ${meta.url} (${(
@@ -116,44 +118,5 @@ const implementation = (arg: Object): Promise<*> => {
     meta
   );
 };
-
-function SyncTokenDisabled(response) {
-  this.response = response;
-}
-
-const Header = "X-LedgerWallet-SyncToken";
-axios.interceptors.request.use(config => {
-  if (getEnv("DISABLE_SYNC_TOKEN")) {
-    if (config.url.endsWith("/syncToken")) {
-      throw new SyncTokenDisabled({
-        status: 200,
-        statusText: "OK",
-        headers: {
-          "content-type": "application/json; charset=utf-8"
-        },
-        config,
-        data: '{"token":""}'
-      });
-    }
-    if (config.headers && Header in config.headers) {
-      delete config.headers[Header];
-      const prop = config.url.includes("v2") ? "noToken=true" : "no_token=true";
-      config.url = config.url + (config.url.includes("?") ? "&" : "?") + prop;
-    }
-  }
-  return config;
-});
-
-axios.interceptors.response.use(
-  r => {
-    return r;
-  },
-  e => {
-    if (e instanceof SyncTokenDisabled) {
-      return e.response;
-    }
-    return Promise.reject(e);
-  }
-);
 
 export default implementation;

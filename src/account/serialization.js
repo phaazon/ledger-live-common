@@ -16,14 +16,20 @@ import type {
   Operation,
   OperationRaw,
   SubAccount,
-  SubAccountRaw
+  SubAccountRaw,
 } from "../types";
 import type { TronResources, TronResourcesRaw } from "../families/tron/types";
 import {
+  toCosmosResourcesRaw,
+  fromCosmosResourcesRaw,
+} from "../families/cosmos/serialization";
+import {
   getCryptoCurrencyById,
   getTokenById,
-  findTokenById
+  findTokenById,
 } from "../currencies";
+
+export { toCosmosResourcesRaw, fromCosmosResourcesRaw };
 
 export function toBalanceHistoryRaw(b: BalanceHistory): BalanceHistoryRaw {
   return b.map(({ date, value }) => [date.toISOString(), value.toString()]);
@@ -32,7 +38,7 @@ export function toBalanceHistoryRaw(b: BalanceHistory): BalanceHistoryRaw {
 export function fromBalanceHistoryRaw(b: BalanceHistoryRaw): BalanceHistory {
   return b.map(([date, value]) => ({
     date: new Date(date),
-    value: new BigNumber(value)
+    value: new BigNumber(value),
   }));
 }
 
@@ -40,7 +46,7 @@ export function toBalanceHistoryRawMap(
   bhm: BalanceHistoryMap
 ): BalanceHistoryRawMap {
   const map = {};
-  Object.keys(bhm).forEach(range => {
+  Object.keys(bhm).forEach((range) => {
     map[range] = toBalanceHistoryRaw(bhm[range]);
   });
   return map;
@@ -50,7 +56,7 @@ export function fromBalanceHistoryRawMap(
   bhm: BalanceHistoryRawMap
 ): BalanceHistoryMap {
   const map = {};
-  Object.keys(bhm).forEach(range => {
+  Object.keys(bhm).forEach((range) => {
     map[range] = fromBalanceHistoryRaw(bhm[range]);
   });
   return map;
@@ -64,13 +70,13 @@ export const toOperationRaw = (
     ...op,
     date: date.toISOString(),
     value: value.toString(),
-    fee: fee.toString()
+    fee: fee.toString(),
   };
   if (subOperations && preserveSubOperation) {
-    copy.subOperations = subOperations.map(o => toOperationRaw(o));
+    copy.subOperations = subOperations.map((o) => toOperationRaw(o));
   }
   if (internalOperations) {
-    copy.internalOperations = internalOperations.map(o => toOperationRaw(o));
+    copy.internalOperations = internalOperations.map((o) => toOperationRaw(o));
   }
   return copy;
 };
@@ -117,19 +123,19 @@ export const fromOperationRaw = (
     date: new Date(date),
     value: BigNumber(value),
     fee: BigNumber(fee),
-    extra: extra || {}
+    extra: extra || {},
   };
 
   if (subAccounts) {
     res.subOperations = inferSubOperations(op.hash, subAccounts);
   } else if (subOperations) {
-    res.subOperations = subOperations.map(o =>
+    res.subOperations = subOperations.map((o) =>
       fromOperationRaw(o, o.accountId)
     );
   }
 
   if (internalOperations) {
-    res.internalOperations = internalOperations.map(o =>
+    res.internalOperations = internalOperations.map((o) =>
       fromOperationRaw(o, o.accountId)
     );
   }
@@ -147,7 +153,7 @@ export const toTronResourcesRaw = ({
   unwithdrawnReward,
   lastWithdrawnRewardDate,
   lastVotedDate,
-  cacheTransactionInfoById: cacheTx
+  cacheTransactionInfoById: cacheTx,
 }: TronResources): TronResourcesRaw => {
   const frozenBandwidth = frozen.bandwidth;
   const frozenEnergy = frozen.energy;
@@ -160,7 +166,7 @@ export const toTronResourcesRaw = ({
       fee,
       blockNumber,
       withdraw_amount,
-      unfreeze_amount
+      unfreeze_amount,
     ];
   }
 
@@ -169,15 +175,15 @@ export const toTronResourcesRaw = ({
       bandwidth: frozenBandwidth
         ? {
             amount: frozenBandwidth.amount.toString(),
-            expiredAt: frozenBandwidth.expiredAt.toISOString()
+            expiredAt: frozenBandwidth.expiredAt.toISOString(),
           }
         : undefined,
       energy: frozenEnergy
         ? {
             amount: frozenEnergy.amount.toString(),
-            expiredAt: frozenEnergy.expiredAt.toISOString()
+            expiredAt: frozenEnergy.expiredAt.toISOString(),
           }
-        : undefined
+        : undefined,
     },
     delegatedFrozen: {
       bandwidth: delegatedFrozenBandwidth
@@ -185,7 +191,7 @@ export const toTronResourcesRaw = ({
         : undefined,
       energy: delegatedFrozenEnergy
         ? { amount: delegatedFrozenEnergy.amount.toString() }
-        : undefined
+        : undefined,
     },
     votes,
     tronPower,
@@ -194,14 +200,14 @@ export const toTronResourcesRaw = ({
       freeUsed: bandwidth.freeUsed.toString(),
       freeLimit: bandwidth.freeLimit.toString(),
       gainedUsed: bandwidth.gainedUsed.toString(),
-      gainedLimit: bandwidth.gainedLimit.toString()
+      gainedLimit: bandwidth.gainedLimit.toString(),
     },
     unwithdrawnReward: unwithdrawnReward.toString(),
     lastWithdrawnRewardDate: lastWithdrawnRewardDate
       ? lastWithdrawnRewardDate.toISOString()
       : undefined,
     lastVotedDate: lastVotedDate ? lastVotedDate.toISOString() : undefined,
-    cacheTransactionInfoById
+    cacheTransactionInfoById,
   };
 };
 
@@ -215,7 +221,7 @@ export const fromTronResourcesRaw = ({
   unwithdrawnReward,
   lastWithdrawnRewardDate,
   lastVotedDate,
-  cacheTransactionInfoById: cacheTransactionInfoByIdRaw
+  cacheTransactionInfoById: cacheTransactionInfoByIdRaw,
 }: TronResourcesRaw): TronResources => {
   const frozenBandwidth = frozen.bandwidth;
   const frozenEnergy = frozen.energy;
@@ -228,13 +234,13 @@ export const fromTronResourcesRaw = ({
         fee,
         blockNumber,
         withdraw_amount,
-        unfreeze_amount
+        unfreeze_amount,
       ] = cacheTransactionInfoByIdRaw[k];
       cacheTransactionInfoById[k] = {
         fee,
         blockNumber,
         withdraw_amount,
-        unfreeze_amount
+        unfreeze_amount,
       };
     }
   }
@@ -243,15 +249,15 @@ export const fromTronResourcesRaw = ({
       bandwidth: frozenBandwidth
         ? {
             amount: BigNumber(frozenBandwidth.amount),
-            expiredAt: new Date(frozenBandwidth.expiredAt)
+            expiredAt: new Date(frozenBandwidth.expiredAt),
           }
         : undefined,
       energy: frozenEnergy
         ? {
             amount: BigNumber(frozenEnergy.amount),
-            expiredAt: new Date(frozenEnergy.expiredAt)
+            expiredAt: new Date(frozenEnergy.expiredAt),
           }
-        : undefined
+        : undefined,
     },
     delegatedFrozen: {
       bandwidth: delegatedFrozenBandwidth
@@ -259,7 +265,7 @@ export const fromTronResourcesRaw = ({
         : undefined,
       energy: delegatedFrozenEnergy
         ? { amount: BigNumber(delegatedFrozenEnergy.amount) }
-        : undefined
+        : undefined,
     },
     votes,
     tronPower,
@@ -268,14 +274,14 @@ export const fromTronResourcesRaw = ({
       freeUsed: BigNumber(bandwidth.freeUsed),
       freeLimit: BigNumber(bandwidth.freeLimit),
       gainedUsed: BigNumber(bandwidth.gainedUsed),
-      gainedLimit: BigNumber(bandwidth.gainedLimit)
+      gainedLimit: BigNumber(bandwidth.gainedLimit),
     },
     unwithdrawnReward: BigNumber(unwithdrawnReward),
     lastWithdrawnRewardDate: lastWithdrawnRewardDate
       ? new Date(lastWithdrawnRewardDate)
       : undefined,
     lastVotedDate: lastVotedDate ? new Date(lastVotedDate) : undefined,
-    cacheTransactionInfoById
+    cacheTransactionInfoById,
   };
 };
 
@@ -287,11 +293,12 @@ export function fromTokenAccountRaw(raw: TokenAccountRaw): TokenAccount {
     starred,
     operations,
     pendingOperations,
+    creationDate,
     balance,
-    balanceHistory
+    balanceHistory,
   } = raw;
   const token = getTokenById(tokenId);
-  const convertOperation = op => fromOperationRaw(op, id);
+  const convertOperation = (op) => fromOperationRaw(op, id);
   return {
     type: "TokenAccount",
     id,
@@ -300,10 +307,11 @@ export function fromTokenAccountRaw(raw: TokenAccountRaw): TokenAccount {
     starred: starred || false,
     balance: BigNumber(balance),
     balanceHistory: fromBalanceHistoryRawMap(balanceHistory || {}),
+    creationDate: new Date(creationDate || Date.now()),
     operationsCount:
       raw.operationsCount || (operations && operations.length) || 0,
     operations: (operations || []).map(convertOperation),
-    pendingOperations: (pendingOperations || []).map(convertOperation)
+    pendingOperations: (pendingOperations || []).map(convertOperation),
   };
 }
 
@@ -317,7 +325,7 @@ export function toTokenAccountRaw(ta: TokenAccount): TokenAccountRaw {
     operationsCount,
     pendingOperations,
     balance,
-    balanceHistory
+    balanceHistory,
   } = ta;
   return {
     type: "TokenAccountRaw",
@@ -327,9 +335,10 @@ export function toTokenAccountRaw(ta: TokenAccount): TokenAccountRaw {
     tokenId: token.id,
     balance: balance.toString(),
     balanceHistory: toBalanceHistoryRawMap(balanceHistory || {}),
+    creationDate: ta.creationDate.toISOString(),
     operationsCount,
-    operations: operations.map(o => toOperationRaw(o)),
-    pendingOperations: pendingOperations.map(o => toOperationRaw(o))
+    operations: operations.map((o) => toOperationRaw(o)),
+    pendingOperations: pendingOperations.map((o) => toOperationRaw(o)),
   };
 }
 
@@ -340,15 +349,16 @@ export function fromChildAccountRaw(raw: ChildAccountRaw): ChildAccount {
     parentId,
     currencyId,
     starred,
+    creationDate,
     operations,
     operationsCount,
     pendingOperations,
     balance,
     address,
-    balanceHistory
+    balanceHistory,
   } = raw;
   const currency = getCryptoCurrencyById(currencyId);
-  const convertOperation = op => fromOperationRaw(op, id);
+  const convertOperation = (op) => fromOperationRaw(op, id);
   return {
     type: "ChildAccount",
     id,
@@ -359,9 +369,10 @@ export function fromChildAccountRaw(raw: ChildAccountRaw): ChildAccount {
     address,
     balance: BigNumber(balance),
     balanceHistory: fromBalanceHistoryRawMap(balanceHistory || {}),
+    creationDate: new Date(creationDate || Date.now()),
     operationsCount: operationsCount || (operations && operations.length) || 0,
     operations: (operations || []).map(convertOperation),
-    pendingOperations: (pendingOperations || []).map(convertOperation)
+    pendingOperations: (pendingOperations || []).map(convertOperation),
   };
 }
 
@@ -377,7 +388,8 @@ export function toChildAccountRaw(ca: ChildAccount): ChildAccountRaw {
     pendingOperations,
     balance,
     balanceHistory,
-    address
+    address,
+    creationDate,
   } = ca;
   return {
     type: "ChildAccountRaw",
@@ -390,8 +402,9 @@ export function toChildAccountRaw(ca: ChildAccount): ChildAccountRaw {
     currencyId: currency.id,
     balance: balance.toString(),
     balanceHistory: toBalanceHistoryRawMap(balanceHistory || {}),
-    operations: operations.map(o => toOperationRaw(o)),
-    pendingOperations: pendingOperations.map(o => toOperationRaw(o))
+    creationDate: creationDate.toISOString(),
+    operations: operations.map((o) => toOperationRaw(o)),
+    pendingOperations: pendingOperations.map((o) => toOperationRaw(o)),
   };
 }
 
@@ -457,17 +470,19 @@ export function fromAccountRaw(rawAccount: AccountRaw): Account {
     operationsCount,
     pendingOperations,
     lastSyncDate,
+    creationDate,
     balance,
     balanceHistory,
     spendableBalance,
     subAccounts: subAccountsRaw,
-    tronResources
+    tronResources,
+    cosmosResources,
   } = rawAccount;
 
   const subAccounts =
     subAccountsRaw &&
     subAccountsRaw
-      .map(ta => {
+      .map((ta) => {
         if (ta.type === "TokenAccountRaw") {
           if (findTokenById(ta.tokenId)) {
             return fromTokenAccountRaw(ta);
@@ -481,10 +496,10 @@ export function fromAccountRaw(rawAccount: AccountRaw): Account {
   const currency = getCryptoCurrencyById(currencyId);
 
   const unit =
-    currency.units.find(u => u.magnitude === unitMagnitude) ||
+    currency.units.find((u) => u.magnitude === unitMagnitude) ||
     currency.units[0];
 
-  const convertOperation = op => fromOperationRaw(op, id, subAccounts);
+  const convertOperation = (op) => fromOperationRaw(op, id, subAccounts);
 
   const res: $Exact<Account> = {
     type: "Account",
@@ -497,10 +512,11 @@ export function fromAccountRaw(rawAccount: AccountRaw): Account {
     freshAddressPath,
     freshAddresses: freshAddresses || [
       // in case user come from an old data that didn't support freshAddresses
-      { derivationPath: freshAddressPath, address: freshAddress }
+      { derivationPath: freshAddressPath, address: freshAddress },
     ],
     name,
     blockHeight,
+    creationDate: new Date(creationDate || Date.now()),
     balance: BigNumber(balance),
     balanceHistory: fromBalanceHistoryRawMap(balanceHistory || {}),
     spendableBalance: BigNumber(spendableBalance || balance),
@@ -509,7 +525,7 @@ export function fromAccountRaw(rawAccount: AccountRaw): Account {
     pendingOperations: (pendingOperations || []).map(convertOperation),
     unit,
     currency,
-    lastSyncDate: new Date(lastSyncDate || 0)
+    lastSyncDate: new Date(lastSyncDate || 0),
   };
 
   if (xpub) {
@@ -528,6 +544,10 @@ export function fromAccountRaw(rawAccount: AccountRaw): Account {
     res.tronResources = fromTronResourcesRaw(tronResources);
   }
 
+  if (cosmosResources) {
+    res.cosmosResources = fromCosmosResourcesRaw(cosmosResources);
+  }
+
   return res;
 }
 
@@ -544,6 +564,7 @@ export function toAccountRaw({
   freshAddresses,
   blockHeight,
   currency,
+  creationDate,
   operationsCount,
   operations,
   pendingOperations,
@@ -554,7 +575,8 @@ export function toAccountRaw({
   spendableBalance,
   subAccounts,
   endpointConfig,
-  tronResources
+  tronResources,
+  cosmosResources,
 }: Account): AccountRaw {
   const res: $Exact<AccountRaw> = {
     id,
@@ -567,14 +589,15 @@ export function toAccountRaw({
     freshAddressPath,
     freshAddresses,
     blockHeight,
+    creationDate: creationDate.toISOString(),
     operationsCount,
-    operations: (operations || []).map(o => toOperationRaw(o)),
-    pendingOperations: (pendingOperations || []).map(o => toOperationRaw(o)),
+    operations: (operations || []).map((o) => toOperationRaw(o)),
+    pendingOperations: (pendingOperations || []).map((o) => toOperationRaw(o)),
     currencyId: currency.id,
     unitMagnitude: unit.magnitude,
     lastSyncDate: lastSyncDate.toISOString(),
     balance: balance.toString(),
-    spendableBalance: spendableBalance.toString()
+    spendableBalance: spendableBalance.toString(),
   };
   if (balanceHistory) {
     res.balanceHistory = toBalanceHistoryRawMap(balanceHistory);
@@ -590,6 +613,9 @@ export function toAccountRaw({
   }
   if (tronResources) {
     res.tronResources = toTronResourcesRaw(tronResources);
+  }
+  if (cosmosResources) {
+    res.cosmosResources = toCosmosResourcesRaw(cosmosResources);
   }
   return res;
 }

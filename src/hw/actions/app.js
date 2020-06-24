@@ -7,24 +7,25 @@ import {
   debounceTime,
   catchError,
   switchMap,
-  tap
+  tap,
 } from "rxjs/operators";
 import { useEffect, useCallback, useState, useMemo } from "react";
 import { log } from "@ledgerhq/logs";
 import {
   getDerivationScheme,
   getDerivationModesForCurrency,
-  runDerivationScheme
+  runDerivationScheme,
 } from "../../derivation";
 import type {
   AppAndVersion,
   ConnectAppEvent,
-  Input as ConnectAppInput
+  Input as ConnectAppInput,
 } from "../connectApp";
 import type { Account, CryptoCurrency, TokenCurrency } from "../../types";
 import { useReplaySubject } from "../../observable";
 import { getAccountName } from "../../account";
 import type { Device, Action } from "./types";
+import { shouldUpgrade } from "../../apps";
 
 type State = {|
   isLoading: boolean,
@@ -38,25 +39,27 @@ type State = {|
   allowOpeningGranted: boolean,
   device: ?Device,
   error: ?Error,
-  derivation: ?{ address: string }
+  derivation: ?{ address: string },
+  displayUpgradeWarning: boolean,
 |};
 
 export type AppState = {|
   ...State,
   onRetry: () => void,
-  inWrongDeviceForAccount: ?{ accountName: string }
+  passWarning: () => void,
+  inWrongDeviceForAccount: ?{ accountName: string },
 |};
 
 export type AppRequest = {
   appName?: ?string,
   currency?: ?CryptoCurrency,
   account?: ?Account,
-  tokenCurrency?: ?TokenCurrency
+  tokenCurrency?: ?TokenCurrency,
 };
 
 export type AppResult = {|
   device: Device,
-  appAndVersion: ?AppAndVersion
+  appAndVersion: ?AppAndVersion,
 |};
 
 type AppAction = Action<AppRequest, AppState, AppResult>;
@@ -64,10 +67,16 @@ type AppAction = Action<AppRequest, AppState, AppResult>;
 type Event =
   | { type: "error", error: Error }
   | { type: "deviceChange", device: ?Device }
-  | ConnectAppEvent;
+  | ConnectAppEvent
+  | { type: "display-upgrade-warning", displayUpgradeWarning: boolean };
 
-const mapResult = ({ opened, device, appAndVersion }: AppState): ?AppResult =>
-  opened && device ? { device, appAndVersion } : null;
+const mapResult = ({
+  opened,
+  device,
+  appAndVersion,
+  displayUpgradeWarning,
+}: AppState): ?AppResult =>
+  opened && device && !displayUpgradeWarning ? { device, appAndVersion } : null;
 
 const getInitialState = (device?: ?Device): State => ({
   isLoading: !!device,
@@ -81,7 +90,8 @@ const getInitialState = (device?: ?Device): State => ({
   opened: false,
   appAndVersion: null,
   error: null,
-  derivation: null
+  derivation: null,
+  displayUpgradeWarning: false,
 });
 
 const reducer = (state: State, e: Event): State => {
@@ -89,41 +99,41 @@ const reducer = (state: State, e: Event): State => {
     case "unresponsiveDevice":
       return {
         ...state,
-        unresponsive: true
+        unresponsive: true,
       };
 
     case "deviceChange":
       return {
         ...getInitialState(e.device),
-        device: e.device
+        device: e.device,
       };
 
     case "error":
       return {
         ...getInitialState(),
         error: e.error,
-        isLoading: false
+        isLoading: false,
       };
 
     case "ask-open-app":
       return {
         ...state,
         unresponsive: false,
-        requestOpenApp: e.appName
+        requestOpenApp: e.appName,
       };
 
     case "ask-quit-app":
       return {
         ...state,
         unresponsive: false,
-        requestQuitApp: true
+        requestQuitApp: true,
       };
 
     case "device-permission-requested":
       return {
         ...state,
         unresponsive: false,
-        allowOpeningRequestedWording: e.wording
+        allowOpeningRequestedWording: e.wording,
       };
 
     case "device-permission-granted":
@@ -131,7 +141,7 @@ const reducer = (state: State, e: Event): State => {
         ...state,
         unresponsive: false,
         allowOpeningRequestedWording: null,
-        allowOpeningGranted: true
+        allowOpeningGranted: true,
       };
 
     case "app-not-installed":
@@ -140,7 +150,7 @@ const reducer = (state: State, e: Event): State => {
         isLoading: false,
         unresponsive: false,
         allowOpeningRequestedWording: null,
-        requiresAppInstallation: { appName: e.appName }
+        requiresAppInstallation: { appName: e.appName },
       };
 
     case "opened":
@@ -150,7 +160,11 @@ const reducer = (state: State, e: Event): State => {
         unresponsive: false,
         opened: true,
         appAndVersion: e.app,
-        derivation: e.derivation
+        derivation: e.derivation,
+        displayUpgradeWarning:
+          state.device && e.app
+            ? shouldUpgrade(state.device.modelId, e.app.name, e.app.version)
+            : false,
       };
   }
   return state;
@@ -193,13 +207,13 @@ function inferCommandParams(appRequest: AppRequest) {
     requiresDerivation: {
       derivationMode,
       derivationPath,
-      currencyId: currency.id
-    }
+      currencyId: currency.id,
+    },
   };
 }
 
 export const createAction = (
-  connectAppExec: ConnectAppInput => Observable<ConnectAppEvent>
+  connectAppExec: (ConnectAppInput) => Observable<ConnectAppEvent>
 ): AppAction => {
   const connectApp = (device, params) =>
     concat(
@@ -207,8 +221,9 @@ export const createAction = (
       !device
         ? empty()
         : connectAppExec({
+            modelId: device.modelId,
             devicePath: device.deviceId,
-            ...params
+            ...params,
           }).pipe(catchError((error: Error) => of({ type: "error", error })))
     );
 
@@ -227,7 +242,7 @@ export const createAction = (
         // eslint-disable-next-line react-hooks/exhaustive-deps
         appRequest.account && appRequest.account.id,
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        appRequest.currency && appRequest.currency.id
+        appRequest.currency && appRequest.currency.id,
       ]
     );
 
@@ -237,14 +252,14 @@ export const createAction = (
           // debounce a bit the connect/disconnect event that we don't need
           debounceTime(1000),
           // each time there is a device change, we pipe to the command
-          switchMap(device => connectApp(device, params)),
-          tap(e => log("actions-app-event", e.type, e)),
+          switchMap((device) => connectApp(device, params)),
+          tap((e) => log("actions-app-event", e.type, e)),
           // tap(e => console.log("connectApp event", e)),
           // we gather all events with a reducer into the UI state
           scan(reducer, getInitialState()),
           // tap(s => console.log("connectApp state", s)),
           // we debounce the UI state to not blink on the UI
-          debounce(s => {
+          debounce((s) => {
             if (s.allowOpeningRequestedWording || s.allowOpeningGranted) {
               // no debounce for allow event
               return empty();
@@ -262,7 +277,14 @@ export const createAction = (
     }, [params, deviceSubject, resetIndex]);
 
     const onRetry = useCallback(() => {
-      setResetIndex(currIndex => currIndex + 1);
+      setResetIndex((currIndex) => currIndex + 1);
+    }, []);
+
+    const passWarning = useCallback(() => {
+      setState((currState) => ({
+        ...currState,
+        displayUpgradeWarning: false,
+      }));
     }, []);
 
     return {
@@ -273,12 +295,13 @@ export const createAction = (
             ? { accountName: getAccountName(appRequest.account) }
             : null
           : null,
-      onRetry
+      onRetry,
+      passWarning,
     };
   };
 
   return {
     useHook,
-    mapResult
+    mapResult,
   };
 };

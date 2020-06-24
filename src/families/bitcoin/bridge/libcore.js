@@ -6,8 +6,9 @@ import {
   FeeNotLoaded,
   FeeRequired,
   FeeTooHigh,
-  NotEnoughBalance
+  NotEnoughBalance,
 } from "@ledgerhq/errors";
+import { LowerThanMinimumRelayFee } from "../../../errors";
 import { validateRecipient } from "../../../bridge/shared";
 import type { AccountBridge, CurrencyBridge } from "../../../types/bridge";
 import type { Account } from "../../../types/account";
@@ -21,12 +22,13 @@ import broadcast from "../libcore-broadcast";
 import signOperation from "../libcore-signOperation";
 import { getMainAccount } from "../../../account";
 import { abandonSeedLegacyPerCurrency } from "../publicAddresses";
+import { getMinRelayFee } from "../fees";
 
 const calculateFees = makeLRUCache(
   async (a, t) => {
     return getFeesForTransaction({
       account: a,
-      transaction: t
+      transaction: t,
     });
   },
   (a, t) =>
@@ -41,7 +43,7 @@ const createTransaction = () => ({
   recipient: "",
   feePerByte: null,
   networkInfo: null,
-  useAllAmount: false
+  useAllAmount: false,
 });
 
 const updateTransaction = (t, patch) => ({ ...t, ...patch });
@@ -51,7 +53,7 @@ const worseCaseCostEstimationAddresses = abandonSeedLegacyPerCurrency;
 const estimateMaxSpendable = async ({
   account,
   parentAccount,
-  transaction
+  transaction,
 }) => {
   const mainAccount = getMainAccount(account, parentAccount);
   const t = await prepareTransaction(mainAccount, {
@@ -59,7 +61,7 @@ const estimateMaxSpendable = async ({
     ...createTransaction(),
     ...transaction,
     useAllAmount: true,
-    recipient: worseCaseCostEstimationAddresses[mainAccount.currency.id]
+    recipient: worseCaseCostEstimationAddresses[mainAccount.currency.id],
   });
   const s = await getTransactionStatus(mainAccount, t);
   return s.amount;
@@ -90,10 +92,10 @@ const getTransactionStatus = async (a, t) => {
     errors.feePerByte = new FeeRequired();
   } else if (!errors.recipient) {
     await calculateFees(a, t).then(
-      res => {
+      (res) => {
         estimatedFees = res.estimatedFees;
       },
-      error => {
+      (error) => {
         if (error.name === "NotEnoughBalance") {
           errors.amount = error;
         } else {
@@ -111,7 +113,13 @@ const getTransactionStatus = async (a, t) => {
     errors.amount = new NotEnoughBalance();
   }
 
-  if (amount.gt(0) && estimatedFees.times(10).gt(amount)) {
+  if (
+    process.env.EXPERIMENTAL_MIN_RELAY_FEE &&
+    estimatedFees.gt(0) &&
+    estimatedFees.lt(getMinRelayFee(a.currency))
+  ) {
+    warnings.feePerByte = new LowerThanMinimumRelayFee();
+  } else if (amount.gt(0) && estimatedFees.times(10).gt(amount)) {
     warnings.feeTooHigh = new FeeTooHigh();
   }
 
@@ -124,7 +132,7 @@ const getTransactionStatus = async (a, t) => {
     warnings,
     estimatedFees,
     amount,
-    totalSpent
+    totalSpent,
   });
 };
 
@@ -148,14 +156,14 @@ const prepareTransaction = async (
   return {
     ...t,
     networkInfo,
-    feePerByte
+    feePerByte,
   };
 };
 
 const currencyBridge: CurrencyBridge = {
   scanAccounts,
   preload: () => Promise.resolve(),
-  hydrate: () => {}
+  hydrate: () => {},
 };
 
 const accountBridge: AccountBridge<Transaction> = {
@@ -166,7 +174,7 @@ const accountBridge: AccountBridge<Transaction> = {
   getTransactionStatus,
   sync,
   signOperation,
-  broadcast
+  broadcast,
 };
 
 export default { currencyBridge, accountBridge };

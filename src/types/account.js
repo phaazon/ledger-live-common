@@ -6,17 +6,21 @@ import type { OperationRaw, Operation } from "./operation";
 import type { DerivationMode } from "../derivation";
 import type { TronResources, TronResourcesRaw } from "../families/tron/types";
 import type {
+  CosmosResources,
+  CosmosResourcesRaw,
+} from "../families/cosmos/types";
+import type {
   BalanceHistory,
   BalanceHistoryRaw,
-  PortfolioRange
+  PortfolioRange,
 } from "./portfolio";
 
 export type BalanceHistoryMap = {
-  [_: PortfolioRange]: BalanceHistory
+  [_: PortfolioRange]: BalanceHistory,
 };
 
 export type BalanceHistoryRawMap = {
-  [_: PortfolioRange]: BalanceHistoryRaw
+  [_: PortfolioRange]: BalanceHistoryRaw,
 };
 
 // A token belongs to an Account and share the parent account address
@@ -27,11 +31,12 @@ export type TokenAccount = {
   parentId: string,
   token: TokenCurrency,
   balance: BigNumber,
+  creationDate: Date,
   operationsCount: number,
   operations: Operation[],
   pendingOperations: Operation[],
   starred: boolean,
-  balanceHistory?: BalanceHistoryMap
+  balanceHistory?: BalanceHistoryMap,
 };
 
 // A child account belongs to an Account but has its own address
@@ -45,15 +50,16 @@ export type ChildAccount = {
   currency: CryptoCurrency,
   address: string,
   balance: BigNumber,
+  creationDate: Date,
   operationsCount: number,
   operations: Operation[],
   pendingOperations: Operation[],
-  balanceHistory?: BalanceHistoryMap
+  balanceHistory?: BalanceHistoryMap,
 };
 
 export type Address = {|
   address: string,
-  derivationPath: string
+  derivationPath: string,
 |};
 
 export type Account = {
@@ -104,6 +110,10 @@ export type Account = {
 
   // part of the balance that can effectively be spent
   spendableBalance: BigNumber,
+
+  // date the account started "existing", essentially the date of the older tx received/done of this account
+  // It is equal to Date.now() for EMPTY accounts because empty account don't really "exists"
+  creationDate: Date,
 
   // the last block height currently synchronized
   blockHeight: number,
@@ -157,7 +167,8 @@ export type Account = {
   balanceHistory?: BalanceHistoryMap,
 
   // On some blockchain, an account can have resources (gained, delegated, ...)
-  tronResources?: TronResources
+  tronResources?: TronResources,
+  cosmosResources?: CosmosResources,
 };
 
 export type SubAccount = TokenAccount | ChildAccount;
@@ -174,11 +185,12 @@ export type TokenAccountRaw = {
   starred?: boolean,
   parentId: string,
   tokenId: string,
+  creationDate?: string,
   operationsCount?: number,
   operations: OperationRaw[],
   pendingOperations: OperationRaw[],
   balance: string,
-  balanceHistory?: BalanceHistoryRawMap
+  balanceHistory?: BalanceHistoryRawMap,
 };
 
 export type ChildAccountRaw = {
@@ -189,11 +201,12 @@ export type ChildAccountRaw = {
   parentId: string,
   currencyId: string,
   address: string,
+  creationDate?: string,
   operationsCount?: number,
   operations: OperationRaw[],
   pendingOperations: OperationRaw[],
   balance: string,
-  balanceHistory?: BalanceHistoryRawMap
+  balanceHistory?: BalanceHistoryRawMap,
 };
 
 export type AccountRaw = {
@@ -210,6 +223,7 @@ export type AccountRaw = {
   balance: string,
   spendableBalance?: string,
   blockHeight: number,
+  creationDate?: string,
   operationsCount?: number, // this is optional for backward compat
   // ------------------------------------- Specific raw fields
   currencyId: string,
@@ -220,7 +234,8 @@ export type AccountRaw = {
   endpointConfig?: ?string,
   subAccounts?: SubAccountRaw[],
   balanceHistory?: BalanceHistoryRawMap,
-  tronResources?: TronResourcesRaw
+  tronResources?: TronResourcesRaw,
+  cosmosResources?: CosmosResourcesRaw,
 };
 
 export type SubAccountRaw = TokenAccountRaw | ChildAccountRaw;

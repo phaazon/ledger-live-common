@@ -10,7 +10,7 @@ import { withDevice } from "./deviceAccess";
 import getDeviceInfo from "./getDeviceInfo";
 
 export type Input = {
-  devicePath: string
+  devicePath: string,
 };
 
 export type ConnectManagerEvent =
@@ -22,15 +22,15 @@ export type ConnectManagerEvent =
   | ListAppsEvent;
 
 const cmd = ({ devicePath }: Input): Observable<ConnectManagerEvent> =>
-  withDevice(devicePath)(transport =>
-    Observable.create(o => {
+  withDevice(devicePath)((transport) =>
+    Observable.create((o) => {
       const timeoutSub = of({ type: "unresponsiveDevice" })
         .pipe(delay(1000))
-        .subscribe(e => o.next(e));
+        .subscribe((e) => o.next(e));
 
       const sub = from(getDeviceInfo(transport))
         .pipe(
-          concatMap(deviceInfo => {
+          concatMap((deviceInfo) => {
             timeoutSub.unsubscribe();
 
             if (deviceInfo.isBootloader) {
@@ -50,7 +50,7 @@ const cmd = ({ devicePath }: Input): Observable<ConnectManagerEvent> =>
             if (
               e &&
               e instanceof TransportStatusError &&
-              (e.statusCode === 0x6e00 || e.statusCode === 0x6d00)
+              [0x6e00, 0x6d00, 0x6e01, 0x6d01, 0x6d02].includes(e.statusCode)
             ) {
               return of({ type: "appDetected" });
             }

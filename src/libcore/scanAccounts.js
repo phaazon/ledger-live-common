@@ -4,36 +4,39 @@ import { Observable } from "rxjs";
 import Transport from "@ledgerhq/hw-transport";
 import { log } from "@ledgerhq/logs";
 import { TransportStatusError } from "@ledgerhq/errors";
+import semver from "semver";
 import {
   getDerivationModesForCurrency,
   getSeedIdentifierDerivation,
   derivationModeSupportsIndex,
   isIterableDerivationMode,
   getMandatoryEmptyAccountSkip,
-  getDerivationModeStartsAt
+  getDerivationModeStartsAt,
 } from "../derivation";
 import {
   getWalletName,
   shouldShowNewAccount,
-  isAccountEmpty
+  isAccountEmpty,
 } from "../account";
 import type {
   Account,
   CryptoCurrency,
   DerivationMode,
   ScanAccountEvent,
-  SyncConfig
+  SyncConfig,
 } from "../types";
 import { withDevice } from "../hw/deviceAccess";
 import getAddress from "../hw/getAddress";
+import getAppAndVersion from "../hw/getAppAndVersion";
 import { withLibcoreF } from "./access";
 import { syncCoreAccount, newSyncLogId } from "./syncAccount";
 import { getOrCreateWallet } from "./getOrCreateWallet";
 import {
   DerivationsCache,
-  createAccountFromDevice
+  createAccountFromDevice,
 } from "./createAccountFromDevice";
 import { remapLibcoreErrors, isNonExistingAccountError } from "./errors";
+import nativeSegwitAppsVersionsMap from "./nativeSegwitAppsVersionsMap";
 import type { Core, CoreWallet } from "./types";
 
 async function scanNextAccount(props: {
@@ -42,14 +45,14 @@ async function scanNextAccount(props: {
   transport: Transport<*>,
   currency: CryptoCurrency,
   accountIndex: number,
-  onAccountScanned: Account => *,
+  onAccountScanned: (Account) => *,
   seedIdentifier: string,
   derivationMode: DerivationMode,
   showNewAccount: boolean,
   isUnsubscribed: () => boolean,
   emptyCount?: number,
   syncConfig: SyncConfig,
-  derivationsCache: DerivationsCache
+  derivationsCache: DerivationsCache,
 }) {
   const logId = newSyncLogId();
 
@@ -65,7 +68,7 @@ async function scanNextAccount(props: {
     showNewAccount,
     isUnsubscribed,
     syncConfig,
-    derivationsCache
+    derivationsCache,
   } = props;
 
   log(
@@ -89,7 +92,7 @@ async function scanNextAccount(props: {
       index: accountIndex,
       derivationMode,
       isUnsubscribed,
-      derivationsCache
+      derivationsCache,
     });
   }
 
@@ -104,7 +107,7 @@ async function scanNextAccount(props: {
     derivationMode,
     seedIdentifier,
     logId,
-    syncConfig
+    syncConfig,
   });
 
   if (isUnsubscribed()) return;
@@ -117,8 +120,9 @@ async function scanNextAccount(props: {
 
   log(
     "libcore",
-    `scanning ${currency.id} ${derivationMode ||
-      "default"}@${accountIndex}: resulted of ${
+    `scanning ${currency.id} ${
+      derivationMode || "default"
+    }@${accountIndex}: resulted of ${
       account && !shouldSkip
         ? `Account with ${account.operationsCount} txs (xpub ${String(
             account.xpub
@@ -140,7 +144,7 @@ async function scanNextAccount(props: {
     await scanNextAccount({
       ...props,
       accountIndex: accountIndex + 1,
-      emptyCount: isEmpty ? emptyCount + 1 : 0
+      emptyCount: isEmpty ? emptyCount + 1 : 0,
     });
   }
 }
@@ -149,26 +153,26 @@ export const scanAccounts = ({
   currency,
   deviceId,
   scheme,
-  syncConfig
+  syncConfig,
 }: {
   currency: CryptoCurrency,
   deviceId: string,
   scheme?: ?DerivationMode,
-  syncConfig: SyncConfig
+  syncConfig: SyncConfig,
 }): Observable<ScanAccountEvent> =>
-  withDevice(deviceId)(transport =>
-    Observable.create(o => {
+  withDevice(deviceId)((transport) =>
+    Observable.create((o) => {
       let finished = false;
       const unsubscribe = () => {
         finished = true;
       };
       const isUnsubscribed = () => finished;
 
-      const main = withLibcoreF(core => async () => {
+      const main = withLibcoreF((core) => async () => {
         try {
           let derivationModes = getDerivationModesForCurrency(currency);
           if (scheme !== undefined) {
-            derivationModes = derivationModes.filter(mode => mode === scheme);
+            derivationModes = derivationModes.filter((mode) => mode === scheme);
           }
           for (let i = 0; i < derivationModes.length; i++) {
             const derivationMode = derivationModes[i];
@@ -176,11 +180,25 @@ export const scanAccounts = ({
 
             let result;
 
+            if (derivationMode === "native_segwit") {
+              if (nativeSegwitAppsVersionsMap[currency.managerAppName]) {
+                const { version } = await getAppAndVersion(transport);
+                if (
+                  !semver.gte(
+                    version,
+                    nativeSegwitAppsVersionsMap[currency.managerAppName]
+                  )
+                ) {
+                  return;
+                }
+              }
+            }
+
             try {
               result = await getAddress(transport, {
                 currency,
                 path,
-                derivationMode
+                derivationMode,
               });
             } catch (e) {
               // feature detection: some old app will specifically returns this code for segwit case and we ignore it
@@ -207,18 +225,18 @@ export const scanAccounts = ({
             const walletName = getWalletName({
               seedIdentifier,
               currency,
-              derivationMode
+              derivationMode,
             });
 
             const wallet = await getOrCreateWallet({
               core,
               walletName,
               currency,
-              derivationMode
+              derivationMode,
             });
             if (isUnsubscribed()) return;
 
-            const onAccountScanned = account =>
+            const onAccountScanned = (account) =>
               o.next({ type: "discovered", account });
 
             // recursively scan all accounts on device on the given app
@@ -235,16 +253,12 @@ export const scanAccounts = ({
               showNewAccount: shouldShowNewAccount(currency, derivationMode),
               isUnsubscribed,
               syncConfig,
-              derivationsCache: new DerivationsCache()
+              derivationsCache: new DerivationsCache(),
             });
           }
           o.complete();
         } catch (e) {
           o.error(remapLibcoreErrors(e));
-        }
-
-        if (transport) {
-          await transport.close();
         }
       });
 
