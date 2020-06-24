@@ -2,12 +2,28 @@
 
 import type { BigNumber } from "bignumber.js";
 import type {
+  CoreAccount,
   CoreAmount,
   CoreBigInt,
+  CoreOperation,
+  CoreServices,
+  CoreWalletStore,
   OperationType,
   Spec,
   CoreOperationQuery,
 } from "../../libcore/types";
+
+declare class CoreTezos {
+  registerInto(
+    services: CoreServices,
+    walletStore: CoreWalletStore
+  ): Promise<void>;
+  fromCoreAccount(coreAccount: CoreAccount): Promise<?CoreTezosLikeAccount>;
+  fromCoreOperation(
+    coreOperation: CoreOperation
+  ): Promise<?CoreTezosLikeOperation>;
+}
+
 import type {
   TransactionCommon,
   TransactionCommonRaw,
@@ -87,6 +103,7 @@ declare class CoreTezosLikeOriginatedAccount {
 }
 
 export type CoreStatics = {
+  Tezos: Class<CoreTezos>,
   TezosLikeOperation: Class<CoreTezosLikeOperation>,
   TezosLikeAddress: Class<CoreTezosLikeAddress>,
   TezosLikeAccount: Class<CoreTezosLikeAccount>,
@@ -103,13 +120,9 @@ export type {
   CoreTezosLikeTransactionBuilder,
 };
 
-export type CoreAccountSpecifics = {
-  asTezosLikeAccount(): Promise<CoreTezosLikeAccount>,
-};
+export type CoreAccountSpecifics = {};
 
-export type CoreOperationSpecifics = {
-  asTezosLikeOperation(): Promise<CoreTezosLikeOperation>,
-};
+export type CoreOperationSpecifics = {};
 
 export type CoreCurrencySpecifics = {};
 
@@ -145,6 +158,14 @@ export type TransactionRaw = {|
 |};
 
 export const reflect = (declare: (string, Spec) => void) => {
+  declare("Tezos", {
+    methods: {
+      registerInto: {},
+      fromCoreAccount: {},
+      fromCoreOperation: {}
+    }
+  });
+
   declare("TezosLikeAddress", {
     methods: {
       toBase58: {},
@@ -248,15 +269,7 @@ export const reflect = (declare: (string, Spec) => void) => {
   });
 
   return {
-    OperationMethods: {
-      asTezosLikeOperation: {
-        returns: "TezosLikeOperation",
-      },
-    },
-    AccountMethods: {
-      asTezosLikeAccount: {
-        returns: "TezosLikeAccount",
-      },
-    },
+    OperationMethods: {},
+    AccountMethods: {}
   };
 };

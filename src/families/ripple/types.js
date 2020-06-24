@@ -6,7 +6,22 @@ import type {
   TransactionCommon,
   TransactionCommonRaw,
 } from "../../types/transaction";
-import type { CoreAmount, CoreBigInt, Spec } from "../../libcore/types";
+import type {
+  CoreAccount,
+  CoreAmount,
+  CoreBigInt,
+  CoreOperation,
+  CoreServices,
+  CoreWalletStore,
+  Spec
+} from "../../libcore/types";
+
+declare class CoreRipple {
+  registerInto(
+    services: CoreServices,
+    walletStore: CoreWalletStore
+  ): Promise<void>;
+}
 
 declare class CoreRippleLikeAddress {
   toBase58(): Promise<string>;
@@ -25,6 +40,9 @@ declare class CoreRippleLikeTransaction {
 }
 
 declare class CoreRippleLikeOperation {
+  static fromCoreOperation(
+    coreOperation: CoreOperation
+  ): ?CoreRippleLikeOperation;
   getTransaction(): Promise<CoreRippleLikeTransaction>;
 }
 
@@ -37,6 +55,7 @@ declare class CoreRippleLikeTransactionBuilder {
 }
 
 declare class CoreRippleLikeAccount {
+  static fromCoreAccount(coreAccount: CoreAccount): ?CoreRippleLikeAccount;
   buildTransaction(): Promise<CoreRippleLikeTransactionBuilder>;
   broadcastRawTransaction(signed: string): Promise<string>;
   getFees(): Promise<CoreAmount>;
@@ -45,6 +64,7 @@ declare class CoreRippleLikeAccount {
 }
 
 export type CoreStatics = {
+  Ripple: Class<CoreRipple>,
   RippleLikeOperation: Class<CoreRippleLikeOperation>,
   RippleLikeAddress: Class<CoreRippleLikeAddress>,
   RippleLikeTransaction: Class<CoreRippleLikeTransaction>,
@@ -61,13 +81,9 @@ export type {
   CoreRippleLikeTransactionBuilder,
 };
 
-export type CoreAccountSpecifics = {
-  asRippleLikeAccount(): Promise<CoreRippleLikeAccount>,
-};
+export type CoreAccountSpecifics = {};
 
-export type CoreOperationSpecifics = {
-  asRippleLikeOperation(): Promise<CoreRippleLikeOperation>,
-};
+export type CoreOperationSpecifics = {};
 
 export type CoreCurrencySpecifics = {};
 
@@ -102,6 +118,12 @@ export type TransactionRaw = {|
 |};
 
 export const reflect = (declare: (string, Spec) => void) => {
+  declare("Ripple", {
+    methods: {
+      registerInto: {}
+    }
+  });
+
   declare("RippleLikeAddress", {
     methods: {
       toBase58: {},
@@ -169,15 +191,7 @@ export const reflect = (declare: (string, Spec) => void) => {
   });
 
   return {
-    OperationMethods: {
-      asRippleLikeOperation: {
-        returns: "RippleLikeOperation",
-      },
-    },
-    AccountMethods: {
-      asRippleLikeAccount: {
-        returns: "RippleLikeAccount",
-      },
-    },
+    OperationMethods: {},
+    AccountMethods: {}
   };
 };

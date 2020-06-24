@@ -1,13 +1,19 @@
 // @flow
 
-import type { CoreOperation } from "../../libcore/types";
+import type { Core, CoreOperation } from "../../libcore/types";
+import invariant from "invariant";
 
 async function rippleBuildOperation({
-  coreOperation,
+  core,
+  coreOperation
 }: {
-  coreOperation: CoreOperation,
+  core: Core,
+  coreOperation: CoreOperation
 }) {
-  const rippleLikeOperation = await coreOperation.asRippleLikeOperation();
+  const rippleLikeOperation = core.RippleLikeOperation.fromCoreOperation(
+    coreOperation
+  );
+  invariant(rippleLikeOperation, "ripple operation expected");
   const rippleLikeTransaction = await rippleLikeOperation.getTransaction();
   const hash = await rippleLikeTransaction.getHash();
   return { hash };

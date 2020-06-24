@@ -41,7 +41,9 @@ const isAddressActivated = makeLRUCache(
   (account: Account, addr: string) =>
     withLibcore(async (core) => {
       const { coreAccount } = await getCoreAccount(core, account);
-      const rippleLikeAccount = await coreAccount.asRippleLikeAccount();
+      const rippleLikeAccount = core.CoreRippleLikeAccount.fromCoreAccount(
+        coreAccount
+      );
       return await rippleLikeAccount.isAddressActivated(addr);
     }),
   (a, addr) => a.id + "|" + addr

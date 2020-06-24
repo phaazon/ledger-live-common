@@ -16,7 +16,7 @@ import type {
 
 import type { CoreStellarLikeWallet } from "../../families/stellar/types";
 
-declare class CoreWalletPool {
+declare class CoreServices {
   static newInstance(
     name: string,
     pwd: string,
@@ -28,7 +28,14 @@ declare class CoreWalletPool {
     rng: CoreRandomNumberGenerator,
     backend: CoreDatabaseBackend,
     walletDynObject: CoreDynamicObject
-  ): Promise<CoreWalletPool>;
+  ): Promise<CoreServices>;
+  freshResetAll(): Promise<void>;
+  changePassword(oldPassword: string, newPassword: string): Promise<void>;
+  getTenant(): Promise<string>;
+}
+
+declare class CoreWalletStore {
+  static newInstance(services: CoreServices): Promise<CoreWalletStore>;
   getWallet(name: string): Promise<CoreWallet>;
   getCurrency(id: string): Promise<CoreCurrency>;
   updateWalletConfig(
@@ -40,9 +47,6 @@ declare class CoreWalletPool {
     currency: CoreCurrency,
     config: CoreDynamicObject
   ): Promise<CoreWallet>;
-  freshResetAll(): Promise<void>;
-  changePassword(oldPassword: string, newPassword: string): Promise<void>;
-  getName(): Promise<string>;
 }
 
 declare class CoreWallet {
@@ -243,16 +247,18 @@ export type CoreStatics = {
   PathResolver: Class<CorePathResolver>,
   RandomNumberGenerator: Class<CoreRandomNumberGenerator>,
   SerialContext: Class<CoreSerialContext>,
+  Services: Class<CoreServices>,
   ThreadDispatcher: Class<CoreThreadDispatcher>,
   Wallet: Class<CoreWallet>,
-  WalletPool: Class<CoreWalletPool>,
-  WebSocketClient: Class<CoreWebSocketClient>,
+  WalletStore: Class<CoreWalletStore>,
+  WebSocketClient: Class<CoreWebSocketClient>
 } & SpecificStatics;
 
 export type Core = CoreStatics & {
   flush: () => Promise<void>,
-  getPoolInstance: () => CoreWalletPool,
-  getThreadDispatcher: () => CoreThreadDispatcher,
+  getServices: () => CoreServices,
+  getWalletStore: () => CoreWalletStore,
+  getThreadDispatcher: () => CoreThreadDispatcher
 };
 
 export type {
@@ -277,10 +283,11 @@ export type {
   CorePathResolver,
   CoreRandomNumberGenerator,
   CoreSerialContext,
+  CoreServices,
   CoreThreadDispatcher,
   CoreWallet,
-  CoreWalletPool,
-  CoreWebSocketClient,
+  CoreWalletStore,
+  CoreWebSocketClient
 };
 
 type SpecMapF = {
@@ -327,7 +334,7 @@ export const reflect = (declare: (string, Spec) => void) => {
     {}
   );
 
-  declare("WalletPool", {
+  declare("Services", {
     statics: {
       newInstance: {
         params: [
@@ -342,13 +349,24 @@ export const reflect = (declare: (string, Spec) => void) => {
           "DatabaseBackend",
           "DynamicObject",
         ],
-        returns: "WalletPool",
-      },
+        returns: "Services"
+      }
     },
     methods: {
       freshResetAll: {},
       changePassword: {},
-      getName: {},
+      getTenant: {}
+    }
+  });
+
+  declare("WalletStore", {
+    statics: {
+      newInstance: {
+        params: ["Services"],
+        returns: "WalletStore"
+      }
+    },
+    methods: {
       updateWalletConfig: {
         params: [null, "DynamicObject"],
       },

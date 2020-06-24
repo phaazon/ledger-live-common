@@ -7,21 +7,21 @@ import type {
   TransactionCommonRaw,
 } from "../../types/transaction";
 import type {
+  CoreAccount,
   CoreAmount,
   CoreBigInt,
+  CoreServices,
+  CoreWalletStore,
   OperationType,
   Spec,
 } from "../../libcore/types";
 
-export type EthereumGasLimitRequest = {
-  from?: string,
-  to?: string,
-  value?: string,
-  data?: string,
-  gas?: string,
-  gasPrice?: string,
-  amplifier?: number,
-};
+declare class CoreEthereum {
+  registerInto(
+    services: CoreServices,
+    walletStore: CoreWalletStore
+  ): Promise<void>;
+}
 
 declare class CoreEthereumLikeAddress {
   toEIP55(): Promise<string>;
@@ -50,6 +50,9 @@ declare class CoreInternalTransaction {
 }
 
 declare class CoreEthereumLikeOperation {
+  static fromCoreOperation(
+    coreOperation: CoreOperation
+  ): ?CoreEthereumLikeOperation;
   getTransaction(): Promise<CoreEthereumLikeTransaction>;
   getInternalTransactions(): Promise<CoreInternalTransaction[]>;
 }
@@ -64,6 +67,7 @@ declare class CoreEthereumLikeTransactionBuilder {
 }
 
 declare class CoreEthereumLikeAccount {
+  static fromCoreAccount(coreAccount: CoreAccount): ?CoreEthereumLikeAccount;
   getERC20Accounts(): Promise<CoreERC20LikeAccount[]>;
   buildTransaction(): Promise<CoreEthereumLikeTransactionBuilder>;
   broadcastRawTransaction(signed: string): Promise<string>;
@@ -99,6 +103,7 @@ declare class CoreERC20LikeOperation {
 }
 
 export type CoreStatics = {
+  Ethereum: Class<CoreEthereum>,
   InternalTransaction: Class<CoreInternalTransaction>,
   EthereumLikeOperation: Class<CoreEthereumLikeOperation>,
   EthereumLikeAddress: Class<CoreEthereumLikeAddress>,
@@ -122,13 +127,9 @@ export type {
   CoreERC20Token,
 };
 
-export type CoreAccountSpecifics = {
-  asEthereumLikeAccount(): Promise<CoreEthereumLikeAccount>,
-};
+export type CoreAccountSpecifics = {};
 
-export type CoreOperationSpecifics = {
-  asEthereumLikeOperation(): Promise<CoreEthereumLikeOperation>,
-};
+export type CoreOperationSpecifics = {};
 
 export type CoreCurrencySpecifics = {};
 
@@ -163,6 +164,12 @@ export type TransactionRaw = {|
 |};
 
 export const reflect = (declare: (string, Spec) => void) => {
+  declare("Ethereum", {
+    methods: {
+      registerInto: {}
+    }
+  });
+
   declare("InternalTransaction", {
     methods: {
       getGasLimit: { returns: "BigInt" },
@@ -288,15 +295,7 @@ export const reflect = (declare: (string, Spec) => void) => {
   });
 
   return {
-    OperationMethods: {
-      asEthereumLikeOperation: {
-        returns: "EthereumLikeOperation",
-      },
-    },
-    AccountMethods: {
-      asEthereumLikeAccount: {
-        returns: "EthereumLikeAccount",
-      },
-    },
+    OperationMethods: {},
+    AccountMethods: {}
   };
 };

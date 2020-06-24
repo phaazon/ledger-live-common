@@ -5,12 +5,28 @@ import type {
   TransactionCommon,
   TransactionCommonRaw,
 } from "../../types/transaction";
+
 import type {
-  CoreBigInt,
   CoreAmount,
+  CoreAccount,
+  CoreBigInt,
   CoreDerivationPath,
-  Spec,
+  CoreOperation,
+  CoreServices,
+  CoreWalletStore,
+  Spec
 } from "../../libcore/types";
+
+declare class CoreBitcoin {
+  registerInto(
+    services: CoreServices,
+    walletStore: CoreWalletStore
+  ): Promise<void>;
+  fromCoreAccount(coreAccount: CoreAccount): Promise<?CoreBitcoinLikeAccount>;
+  fromCoreOperation(
+    coreOperation: CoreOperation
+  ): Promise<?CoreBitcoinLikeOperation>;
+}
 
 declare class CoreBitcoinLikeInput {
   getPreviousTransaction(): Promise<string>;
@@ -60,6 +76,7 @@ declare class CoreBitcoinLikeNetworkParameters {
 }
 
 export type CoreStatics = {
+  Bitcoin: Class<CoreBitcoin>,
   BitcoinLikeAccount: Class<CoreBitcoinLikeAccount>,
   BitcoinLikeInput: Class<CoreBitcoinLikeInput>,
   BitcoinLikeNetworkParameters: Class<CoreBitcoinLikeNetworkParameters>,
@@ -79,13 +96,9 @@ export type {
   CoreBitcoinLikeTransactionBuilder,
 };
 
-export type CoreAccountSpecifics = {
-  asBitcoinLikeAccount(): Promise<CoreBitcoinLikeAccount>,
-};
+export type CoreAccountSpecifics = {};
 
-export type CoreOperationSpecifics = {
-  asBitcoinLikeOperation(): Promise<CoreBitcoinLikeOperation>,
-};
+export type CoreOperationSpecifics = {};
 
 export type CoreCurrencySpecifics = {
   getBitcoinLikeNetworkParameters(): Promise<CoreBitcoinLikeNetworkParameters>,
@@ -138,6 +151,14 @@ export type TransactionRaw = {|
 |};
 
 export const reflect = (declare: (string, Spec) => void) => {
+  declare("Bitcoin", {
+    methods: {
+      registerInto: {},
+      fromCoreAccount: {},
+      fromCoreOperation: {}
+    }
+  });
+
   declare("BitcoinLikeInput", {
     methods: {
       getPreviousTransaction: {
@@ -228,15 +249,7 @@ export const reflect = (declare: (string, Spec) => void) => {
   });
 
   return {
-    OperationMethods: {
-      asBitcoinLikeOperation: {
-        returns: "BitcoinLikeOperation",
-      },
-    },
-    AccountMethods: {
-      asBitcoinLikeAccount: {
-        returns: "BitcoinLikeAccount",
-      },
-    },
+    OperationMethods: {},
+    AccountMethods: {}
   };
 };
